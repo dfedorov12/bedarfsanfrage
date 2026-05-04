@@ -443,24 +443,12 @@ function formatFieldValue(fd, v) {
 }
 
 function detailSidebar(item, isEinkauf) {
-  const orderNr   = getField(item,'Bestellnummer')     || getField(item, resolvedFields['Bestellnummer'])     || '';
-  const lieferd   = getField(item,'Lieferdatum')       || getField(item, resolvedFields['Lieferdatum'])       || '';
+  const orderNr   = getField(item,'Bestellnummer')      || getField(item, resolvedFields['Bestellnummer'])      || '';
+  const lieferd   = getField(item,'Lieferdatum')        || getField(item, resolvedFields['Lieferdatum'])        || '';
   const tatPreis  = getField(item,'TatsaechlicherPreis')|| getField(item, resolvedFields['TatsaechlicherPreis'])|| '';
 
   return `
-    <div class="detail-card">
-      <div class="detail-card-header">Status &amp; Genehmigung</div>
-      <div class="detail-card-body">
-        <div class="pa-status-info">
-          <div class="pa-badge">${statusBadge(getField(item,'Status') || 'Eingereicht')}</div>
-          <p class="pa-note">Der Genehmigungsablauf wird vollständig durch <strong>Power Automate</strong> gesteuert. Status-Updates erfolgen automatisch nach Entscheidung der Genehmiger via E-Mail / Teams.</p>
-          <a href="https://dihag.sharepoint.com/sites/gruppe_shb/Lists/Bedarfsanfrage/DispForm.aspx?ID=${item.id}"
-             target="_blank" class="btn btn-sm btn-outline" style="margin-top:10px;display:inline-flex">
-            In SharePoint öffnen ↗
-          </a>
-        </div>
-      </div>
-    </div>
+    ${renderApprovalCard(item)}
 
     <div class="detail-card">
       <div class="detail-card-header">Bestellung (Einkauf)
@@ -470,6 +458,82 @@ function detailSidebar(item, isEinkauf) {
         ${orderNr  ? detailRow('Bestellnummer', orderNr) : '<p class="no-order">Noch keine Bestellnummer eingetragen.</p>'}
         ${lieferd  ? detailRow('Lieferdatum', fmtDate(lieferd)) : ''}
         ${tatPreis ? detailRow('Tatsächlicher Preis', fmtEuro(tatPreis)) : ''}
+      </div>
+    </div>`;
+}
+
+// Keywords to detect approval-related SP columns by displayName or internal name
+const APPROVAL_RE   = /genehmig|freigab|entscheid|ablehn|kommentar.*genehm|genehm.*kommentar/i;
+const STAGE_MAP = [
+  { label: 'Einkauf',          re: /einkauf/i },
+  { label: 'Verwaltung',       re: /verwaltung/i },
+  { label: 'Geschäftsführung', re: /\bgf\b|geschäftsführ|geschaeftsfuehr/i },
+];
+
+function approvalStyle(val) {
+  const v = (val || '').toLowerCase();
+  if (/freigegeben|genehmigt|approved|ja\b/.test(v)) return { bg:'#f0fdf4', color:'#15803d', dot:'✓', cls:'ap-ok' };
+  if (/abgelehnt|rejected|nein\b/.test(v))           return { bg:'#fef2f2', color:'#b91c1c', dot:'✗', cls:'ap-no' };
+  return { bg:'#fffbeb', color:'#b45309', dot:'…', cls:'ap-pending' };
+}
+
+function renderApprovalCard(item) {
+  const statusVal = getField(item,'Status') || 'Eingereicht';
+
+  // Find all approval-related columns that have a value on this item
+  const found = Object.entries(colByKey)
+    .filter(([k, c]) => APPROVAL_RE.test(c.displayName || k) && !SYSTEM_FIELDS.has(k))
+    .map(([k, c]) => ({ key: k, label: c.displayName || k, val: getField(item, k) }))
+    .filter(c => c.val !== null && c.val !== undefined && c.val !== '');
+
+  // Group into stages; ungrouped = shown below without stage header
+  const stages = STAGE_MAP.map(s => ({
+    label: s.label,
+    cols:  found.filter(c => s.re.test(c.label) || s.re.test(c.key)),
+  })).filter(s => s.cols.length);
+  const assigned = new Set(stages.flatMap(s => s.cols.map(c => c.key)));
+  const ungrouped = found.filter(c => !assigned.has(c.key));
+
+  const stagesHtml = stages.map(s => {
+    // Pick the "decision" field (contains genehmig/entscheid/freigab/ablehn)
+    const decisionCol = s.cols.find(c => /genehmig|entscheid|freigab|ablehn/i.test(c.label));
+    const otherCols   = s.cols.filter(c => c !== decisionCol);
+    const st = decisionCol ? approvalStyle(decisionCol.val) : { bg:'#f3f4f6', color:'#6b7280', dot:'○', cls:'ap-neutral' };
+    return `
+      <div class="approval-stage">
+        <div class="ap-dot ${st.cls}">${st.dot}</div>
+        <div class="ap-body">
+          <div class="ap-stage-label">${esc(s.label)}</div>
+          ${decisionCol ? `<span class="ap-badge" style="background:${st.bg};color:${st.color}">${esc(String(decisionCol.val))}</span>` : ''}
+          ${otherCols.map(c => `<div class="ap-meta">${esc(c.label)}: ${esc(String(c.val))}</div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
+
+  const ungroupedHtml = ungrouped.map(c => {
+    const st = approvalStyle(c.val);
+    const isComment = /kommentar|ablehn|grund/i.test(c.label);
+    if (isComment) return `<div class="ap-comment-box"><strong>${esc(c.label)}:</strong> ${esc(String(c.val))}</div>`;
+    return `<div class="approval-stage">
+      <div class="ap-dot ${st.cls}">${st.dot}</div>
+      <div class="ap-body">
+        <div class="ap-stage-label">${esc(c.label)}</div>
+        <span class="ap-badge" style="background:${st.bg};color:${st.color}">${esc(String(c.val))}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const noData = !stages.length && !ungrouped.length;
+
+  return `
+    <div class="detail-card">
+      <div class="detail-card-header">Status &amp; Genehmigung</div>
+      <div class="detail-card-body">
+        <div class="ap-current-status">${statusBadge(statusVal)}</div>
+        ${noData
+          ? `<p class="ap-empty">Noch keine Genehmigungsdaten — Power Automate aktualisiert diesen Bereich automatisch.</p>`
+          : `<div class="approval-stages">${stagesHtml}${ungroupedHtml}</div>`
+        }
       </div>
     </div>`;
 }

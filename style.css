@@ -327,10 +327,42 @@ body {
 .detail-value { font-weight: 500; }
 .no-order { font-size: .82rem; color: #9ca3af; }
 
-/* ── PA status info ── */
-.pa-status-info { display: flex; flex-direction: column; gap: 8px; }
-.pa-badge { }
-.pa-note { font-size: .8rem; color: #6b7280; line-height: 1.5; }
+/* ── Approval card ── */
+.ap-current-status { margin-bottom: 12px; }
+.ap-empty { font-size: .8rem; color: #9ca3af; line-height: 1.5; }
+
+.approval-stages { display: flex; flex-direction: column; gap: 0; }
+
+.approval-stage {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+.approval-stage:last-child { border-bottom: none; }
+
+.ap-dot {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .75rem; font-weight: 700; flex-shrink: 0; margin-top: 1px;
+}
+.ap-ok      { background: #dcfce7; color: #15803d; }
+.ap-no      { background: #fee2e2; color: #b91c1c; }
+.ap-pending { background: #fef9c3; color: #b45309; }
+.ap-neutral { background: #f3f4f6; color: #9ca3af; border: 1px solid #e5e7eb; }
+
+.ap-body { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.ap-stage-label { font-size: .78rem; font-weight: 600; color: #374151; }
+.ap-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 99px;
+  font-size: .75rem; font-weight: 600; width: fit-content;
+}
+.ap-meta { font-size: .75rem; color: #6b7280; }
+
+.ap-comment-box {
+  margin-top: 8px; padding: 8px 10px;
+  background: #fef2f2; border-left: 3px solid #f87171;
+  border-radius: 6px; font-size: .82rem; color: #7f1d1d; line-height: 1.5;
+}
 
 /* ── Empty state ── */
 .empty-state {
