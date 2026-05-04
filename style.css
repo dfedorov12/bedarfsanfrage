@@ -531,6 +531,46 @@ textarea.pf-input { resize: vertical; min-height: 52px; }
 .toast.out     { opacity: 0; transform: translateY(10px); }
 @keyframes toastIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
 
+/* ── Dashboard split layout ── */
+#view-dashboard { padding: 0 !important; display: flex; flex-direction: column; }
+.dash-top { padding: 16px 22px 10px; background: #f0f2f5; flex-shrink: 0; }
+.dash-top .stats-grid { margin-bottom: 0; }
+#split-dashboard { flex: 1; min-height: 0; height: auto; }
+#split-dashboard .split-list { padding-top: 0; }
+.dash-split-list { display: flex; flex-direction: column; }
+.dash-toolbar {
+  padding: 12px 18px 10px; flex-shrink: 0;
+  border-bottom: 1px solid #e5e9ef; background: #fff;
+  justify-content: space-between; margin-bottom: 0;
+}
+.dash-toolbar-left { display: flex; align-items: center; gap: 10px; flex: 1; flex-wrap: wrap; }
+#list-dashboard { padding: 12px 18px; }
+
+/* ── Compact Genehmigungsprozess (collapsible, links) ── */
+.pa-compact { border-bottom: 1px solid #e5e9ef; background: #f8fafc; flex-shrink: 0; }
+.pa-compact-toggle {
+  width: 100%; display: flex; align-items: center; gap: 7px;
+  padding: 9px 16px; background: transparent; border: none;
+  cursor: pointer; font-size: .8rem; color: #4b5563; font-weight: 500;
+  font-family: inherit; text-align: left;
+}
+.pa-compact-toggle:hover { background: #f1f5f9; }
+.pa-toggle-arr { margin-left: auto; transition: transform .2s; font-size: .7rem; color: #9ca3af; }
+.pa-compact.open .pa-toggle-arr { transform: rotate(180deg); }
+.pa-compact-body { display: none; padding: 8px 16px 12px; }
+.pa-compact.open .pa-compact-body { display: block; }
+.pa-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pa-bs { display: flex; align-items: center; gap: 5px; font-size: .76rem; color: #374151; }
+.pa-ba { color: #d1d5db; font-size: .9rem; }
+.pa-bn {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #e5e9ef; color: #374151;
+  font-size: .65rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.pa-bn.pa-auto { background: #fffbeb; color: #b45309; }
+.pa-bn.pa-ok   { background: #f0fdf4; color: #16a34a; }
+
 /* ── Responsive ── */
 @media (max-width: 960px) {
   .sidebar { transform: translateX(-100%); }

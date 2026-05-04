@@ -42,13 +42,17 @@ const EINKAUF_FIELDS = [
 ];
 
 // Status-Werte → Darstellung (kommt von Power Automate)
+// Reihenfolge wichtig: spezifischere zuerst (partielle Treffersuche)
 const STATUS_STYLES = {
-  'eingereicht':   { bg:'#eff6ff', color:'#1d4ed8' },
-  'in prüfung':    { bg:'#fffbeb', color:'#b45309' },
-  'freigegeben':   { bg:'#f0fdf4', color:'#15803d' },
-  'abgelehnt':     { bg:'#fef2f2', color:'#b91c1c' },
-  'bestellt':      { bg:'#faf5ff', color:'#7e22ce' },
-  'erledigt':      { bg:'#f3f4f6', color:'#374151' },
+  'angefragt':      { bg:'#f0f9ff', color:'#0369a1' },
+  'eingereicht':    { bg:'#eff6ff', color:'#1d4ed8' },
+  'in prüfung':     { bg:'#fffbeb', color:'#b45309' },
+  'freigegeben':    { bg:'#f0fdf4', color:'#15803d' },
+  'abgelehnt':      { bg:'#fef2f2', color:'#b91c1c' },
+  'bestellt':       { bg:'#faf5ff', color:'#7e22ce' },
+  'erledigt':       { bg:'#f3f4f6', color:'#374151' },
+  'in bearbeitung': { bg:'#fffbeb', color:'#b45309' },
+  'offen':          { bg:'#eff6ff', color:'#1d4ed8' },
 };
 
 const SYSTEM_FIELDS = new Set([
@@ -244,7 +248,7 @@ async function loadItems(showToast = true) {
     else if (currentView === 'mine')  renderList('mine');
     else if (currentView === 'all')   renderList('all');
     // Refresh open panel
-    if (panelItemId && ['mine','all'].includes(currentView)) {
+    if (panelItemId && ['mine','all','dashboard'].includes(currentView)) {
       const pi = allItems.find(i => String(i.id) === panelItemId);
       if (pi) { $id(`panel-${currentView}-content`).innerHTML = renderPanel(pi); bindPanelEvents(panelItemId); }
     }
@@ -260,14 +264,12 @@ const VIEW_TITLES = { dashboard:'Dashboard', new:'Neue Bedarfsanfrage',
   mine:'Meine Anfragen', all:'Alle Anfragen', detail:'Anfrage Details' };
 
 function navigate(view, id) {
-  // Close any open panel when leaving list views
-  if (!['mine','all'].includes(view)) {
-    ['mine','all'].forEach(v => {
-      $id('panel-' + v)?.classList.add('hidden');
-      $id('split-' + v)?.classList.remove('has-panel');
-    });
-    panelItemId = null;
-  }
+  // Always close panels of all split views when navigating
+  ['mine','all','dashboard'].forEach(v => {
+    $id('panel-' + v)?.classList.add('hidden');
+    $id('split-' + v)?.classList.remove('has-panel');
+  });
+  panelItemId = null;
 
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item[data-view]').forEach(n => n.classList.remove('active'));
@@ -324,9 +326,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
 function renderDashboard() {
   const total    = allItems.length;
-  const open     = allItems.filter(i => isOpenStatus(getField(i,'Status'))).length;
+  const open     = allItems.filter(i => isOpenStatus(getStatusVal(i))).length;
   const approved = allItems.filter(i => {
-    const s = (getField(i,'Status')||'').toLowerCase();
+    const s = (getStatusVal(i)||'').toLowerCase();
     return s.includes('freigegeben') || s.includes('bestellt') || s.includes('erledigt');
   }).length;
   const volume   = allItems.reduce((s,i) => s + (parseFloat(getField(i,'GeschaetzterPreis') ||
@@ -337,11 +339,14 @@ function renderDashboard() {
   $id('st-approved').textContent = approved;
   $id('st-volume').textContent   = fmtEuro(volume);
 
-  // Recent 8 items
-  const recent = allItems.slice(0, 8);
-  $id('dash-recent').innerHTML = recent.length
-    ? recent.map(i => compactRow(i)).join('')
-    : emptyState('Noch keine Anfragen vorhanden');
+  // Populate status filter (once)
+  const sel = $id('filter-dashboard-status');
+  if (sel && sel.options.length <= 1) {
+    const statuses = [...new Set(allItems.map(i => getStatusVal(i)).filter(Boolean))];
+    statuses.forEach(s => sel.add(new Option(s, s)));
+  }
+
+  filterView('dashboard');
 }
 
 function isOpenStatus(s) {
@@ -355,7 +360,7 @@ function renderList(type) {
   // Populate status filter options once
   const sel = $id(`filter-${type}-status`);
   if (sel.options.length <= 1) {
-    const statuses = [...new Set(allItems.map(i => getField(i,'Status')).filter(Boolean))];
+    const statuses = [...new Set(allItems.map(i => getStatusVal(i)).filter(Boolean))];
     statuses.forEach(s => sel.add(new Option(s, s)));
   }
   filterView(type);
@@ -378,7 +383,7 @@ function filterView(type) {
     (getField(i,'Title')||'').toLowerCase().includes(search) ||
     String(i.id||'').includes(search)
   );
-  if (status) items = items.filter(i => (getField(i,'Status')||'') === status);
+  if (status) items = items.filter(i => (getStatusVal(i)||'') === status);
 
   const container = $id(`list-${type}`);
   container.innerHTML = items.length
@@ -1061,7 +1066,7 @@ function compactRow(item) {
 
 // ── SPLIT PANEL ───────────────────────────────────────────────────────────────
 function openPanel(itemId) {
-  if (!['mine','all'].includes(currentView)) { navigate('detail', itemId); return; }
+  if (!['mine','all','dashboard'].includes(currentView)) { navigate('detail', itemId); return; }
   panelItemId = String(itemId);
   const item  = allItems.find(i => String(i.id) === panelItemId);
   if (!item) return;
@@ -1077,7 +1082,7 @@ function openPanel(itemId) {
 }
 
 function closePanel() {
-  ['mine','all'].forEach(v => {
+  ['mine','all','dashboard'].forEach(v => {
     $id('panel-' + v)?.classList.add('hidden');
     $id('split-' + v)?.classList.remove('has-panel');
   });
@@ -1306,8 +1311,14 @@ function getField(item, key) {
 
 function statusBadge(s) {
   if (!s) return '';
-  const sl  = s.toLowerCase().trim();
-  const st  = STATUS_STYLES[sl] || { bg:'#f3f4f6', color:'#374151' };
+  const sl = s.toLowerCase().trim();
+  let st = STATUS_STYLES[sl];
+  if (!st) {
+    for (const [key, style] of Object.entries(STATUS_STYLES)) {
+      if (sl.includes(key)) { st = style; break; }
+    }
+  }
+  st = st || { bg:'#f3f4f6', color:'#374151' };
   return `<span class="status-badge" style="background:${st.bg};color:${st.color}">${esc(s)}</span>`;
 }
 
