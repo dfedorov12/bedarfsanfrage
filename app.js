@@ -700,21 +700,24 @@ function buildFields(data, fieldDefs) {
 }
 
 // Retry POST removing offending fields until SP accepts the payload.
-// Handles both 400 "not recognized" and 500 "generalException" (bad value/type).
+// Handles 400 "not recognized", generic 400 "invalidRequest", and 500 "generalException".
 async function postRetry(path, fields) {
   const skipped = [];
-  // Optional fields that can be dropped if they trigger a 500
+  // Drop order: optional fields first, then non-Title required fields
   const optionalKeys = Object.entries(resolvedFields)
     .filter(([k]) => !FORM_FIELDS.find(f => f.key === k && f.required))
-    .map(([, v]) => v)
-    .filter(Boolean);
+    .map(([, v]) => v).filter(Boolean);
+  const requiredKeys = Object.entries(resolvedFields)
+    .filter(([k]) => FORM_FIELDS.find(f => f.key === k && f.required && f.key !== 'Title'))
+    .map(([, v]) => v).filter(Boolean);
+  const dropQueue = [...optionalKeys, ...requiredKeys];
 
-  for (let i = 0; i < FORM_FIELDS.length + 10; i++) {
+  for (let i = 0; i < dropQueue.length + 5; i++) {
     try {
       await gPost(path, { fields });
       return skipped;
     } catch(e) {
-      // 400: SP names the bad field explicitly
+      // 400 with named field: SP says exactly which field is wrong
       const m400 = e.message.match(/Field '([^']+)' (?:is not recognized|does not exist)/i);
       if (m400) {
         const bad = m400[1];
@@ -725,19 +728,21 @@ async function postRetry(path, fields) {
         }
         continue;
       }
-      // 500: no field named → drop next optional field and retry
-      if (e.message.includes('500') || e.message.includes('generalException')) {
-        // Find first optional field still in payload
-        const dropKey = optionalKeys.find(k => k && fields[k] !== undefined);
+      // 500 or generic 400 "invalidRequest": SP won't say which field is wrong
+      // → drop the next field from the queue and retry
+      const isRetryable = e.message.includes('500') || e.message.includes('generalException') ||
+        e.message.includes('invalidRequest');
+      if (isRetryable) {
+        const dropKey = dropQueue.find(k => k && fields[k] !== undefined);
         if (dropKey) {
-          console.warn('[postRetry] 500 – dropping field:', dropKey, 'value:', fields[dropKey]);
-          skipped.push(dropKey + '(500)');
+          const code = e.message.includes('400') ? '400' : '500';
+          console.warn(`[postRetry] ${code} – dropping field:`, dropKey, 'value:', fields[dropKey]);
+          skipped.push(dropKey + `(${code})`);
           delete fields[dropKey];
-          optionalKeys.splice(optionalKeys.indexOf(dropKey), 1);
           continue;
         }
       }
-      throw e; // unhandled error
+      throw e;
     }
   }
   throw new Error('Einreichen fehlgeschlagen – zu viele problematische Felder.');
