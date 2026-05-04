@@ -191,6 +191,18 @@ async function discoverSP() {
       <em>${missing.join(' · ')}</em>`;
     w.style.display = 'block';
   }
+
+  // Populate Choice selects from actual SP column definitions
+  for (const fd of FORM_FIELDS) {
+    const colName = resolvedFields[fd.key];
+    if (!colName) continue;
+    const col = colByKey[colName];
+    if (!col?.choice?.choices?.length) continue;
+    const el = document.getElementById('f-' + fd.key);
+    if (!el || el.tagName !== 'SELECT') continue;
+    el.innerHTML = fd.required ? '' : '<option value="">– bitte wählen –</option>';
+    for (const c of col.choice.choices) el.add(new Option(c, c));
+  }
 }
 
 function resolveColName(fd) {
@@ -502,7 +514,7 @@ async function saveOrderData(itemId) {
     if (col) patch[col] = val;
   };
   add('Bestellnummer', orderNr);
-  if (delivery) add('Lieferdatum', toSpDate(delivery));
+  if (delivery) add('Lieferdatum', toSpDate(delivery, resolvedFields['Lieferdatum'] || 'Lieferdatum'));
   if (price) add('TatsaechlicherPreis', parseFloat(price));
 
   if (!Object.keys(patch).length) { closeModal(); return; }
@@ -673,11 +685,15 @@ function reviewSection(title, rows) {
 const NUMBER_FIELDS = new Set(['GeschaetzterPreis','Menge','Mindestlagermenge','TatsaechlicherPreis']);
 const DATE_FIELDS   = new Set(['Termin','Lieferdatum']);
 
-// SP Graph requires full ISO 8601: "2026-05-10T00:00:00Z"
-// <input type="date"> yields "2026-05-10" → append time component
-function toSpDate(val) {
+// SP Graph requires ISO 8601 for DateTime columns: "2026-05-10T00:00:00Z"
+// "Date Only" columns want just the date: "2026-05-10"
+// <input type="date"> yields "2026-05-10" → append time only if column is dateTime
+function toSpDate(val, spColName) {
   if (!val) return null;
-  return /^\d{4}-\d{2}-\d{2}$/.test(val) ? val + 'T00:00:00Z' : val;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) return val; // already has time component
+  const col = spColName ? colByKey[spColName] : null;
+  const isDateOnly = col?.dateTime?.format === 'dateOnly';
+  return isDateOnly ? val : val + 'T00:00:00Z';
 }
 
 function buildFields(data, fieldDefs) {
@@ -686,12 +702,16 @@ function buildFields(data, fieldDefs) {
     const spCol = resolvedFields[fd.key];
     const val   = data[fd.key];
     if (!spCol || val === null || val === undefined || val === '') continue;
-    if (NUMBER_FIELDS.has(fd.key)) {
-      const n = parseFloat(val);
-      if (!isNaN(n)) fields[spCol] = n;
-    } else if (DATE_FIELDS.has(fd.key)) {
-      const d = toSpDate(val);
+    if (DATE_FIELDS.has(fd.key)) {
+      const d = toSpDate(val, spCol);
       if (d) fields[spCol] = d;
+    } else if (NUMBER_FIELDS.has(fd.key)) {
+      const col = colByKey[spCol];
+      const n   = parseFloat(val);
+      if (!isNaN(n)) {
+        // Send as number only if SP column is actually numeric; otherwise string
+        fields[spCol] = col?.number ? n : String(n);
+      }
     } else {
       fields[spCol] = val;
     }
@@ -762,7 +782,13 @@ async function submitRequest() {
     const skipped = await postRetry(`/sites/${siteId}/lists/${listId}/items`, fields);
 
     if (skipped.length) {
-      toast(`Eingereicht. Nicht gespeichert (Spalte fehlt in SP-Liste): ${skipped.join(', ')}`, 'info');
+      // Map SP column names back to human-readable field labels
+      const labels = skipped.map(s => {
+        const colName = s.replace(/\(\d+\)$/, '');
+        const fd = FORM_FIELDS.find(f => resolvedFields[f.key] === colName || f.key === colName);
+        return fd ? fd.label : colName;
+      });
+      toast(`Eingereicht. Folgende Felder wurden von SharePoint abgelehnt und nicht gespeichert: ${labels.join(', ')}`, 'info');
     } else {
       toast('Anfrage eingereicht! Power Automate startet den Genehmigungsprozess.', 'success');
     }
