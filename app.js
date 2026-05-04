@@ -731,12 +731,10 @@ function addLieferant(n) {
 }
 
 function updatePreisHint() {
-  const preis  = parseFloat($id('f-GeschaetzterPreis').value) || 0;
-  const menge  = parseFloat($id('f-Menge')?.value) || 1;
-  const gesamt = preis * menge;
-  const hint   = $id('preis-route-hint');
-  if (gesamt > 0) {
-    hint.textContent = genehmigungsweg(gesamt);
+  const preis = parseFloat($id('f-GeschaetzterPreis').value) || 0;
+  const hint  = $id('preis-route-hint');
+  if (preis > 0) {
+    hint.textContent = genehmigungsweg(preis);
     hint.style.display = 'block';
   } else {
     hint.style.display = 'none';
@@ -784,7 +782,7 @@ function buildReview() {
         ['Kostenstelle', d.Kostenstelle],
       ])}
     </div>
-    ${d.GeschaetzterPreis ? `<div class="info-box info" style="margin-top:12px">${genehmigungsweg(d.GeschaetzterPreis * (d.Menge||1))}</div>` : ''}
+    ${d.GeschaetzterPreis ? `<div class="info-box info" style="margin-top:12px">${genehmigungsweg(d.GeschaetzterPreis)}</div>` : ''}
     <div class="info-box info" style="margin-top:10px">
       Nach dem Einreichen wird <strong>Power Automate</strong> automatisch den Genehmigungsprozess starten und den zuständigen Genehmiger per E-Mail / Teams benachrichtigen.
     </div>`;
@@ -1183,7 +1181,7 @@ function renderPanel(item, editMode = false) {
 
   const preis = parseFloat(gv('GeschaetzterPreis')) || 0;
   const menge = parseFloat(gv('Menge')) || 1;
-  const gesamtHint = !editMode && preis > 0 ? genehmigungsweg(preis * menge) : '';
+  const gesamtHint = !editMode && preis > 0 ? genehmigungsweg(preis) : '';
 
   const orderNr  = gv('Bestellnummer');
   const lieferd  = gv('Lieferdatum');
@@ -1319,7 +1317,12 @@ function statusBadge(s) {
     }
   }
   st = st || { bg:'#f3f4f6', color:'#374151' };
-  return `<span class="status-badge" style="background:${st.bg};color:${st.color}">${esc(s)}</span>`;
+  let icon = '';
+  if      (sl.includes('abgelehnt') || sl.includes('rejected'))               icon = '✗ ';
+  else if (sl.includes('freigegeben') || sl.includes('bestellt') || sl.includes('erledigt')) icon = '✓ ';
+  else if (sl.includes('prüfung') || sl.includes('bearbeitung'))               icon = '⏳ ';
+  else if (sl.includes('eingereicht') || sl.includes('angefragt'))             icon = '📋 ';
+  return `<span class="status-badge" style="background:${st.bg};color:${st.color}">${icon}${esc(s)}</span>`;
 }
 
 function prioTag(p) {

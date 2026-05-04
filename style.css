@@ -557,11 +557,15 @@ textarea.pf-input { resize: vertical; min-height: 52px; }
 .pa-compact-toggle:hover { background: #f1f5f9; }
 .pa-toggle-arr { margin-left: auto; transition: transform .2s; font-size: .7rem; color: #9ca3af; }
 .pa-compact.open .pa-toggle-arr { transform: rotate(180deg); }
-.pa-compact-body { display: none; padding: 8px 16px 12px; }
+.pa-compact-body { display: none; padding: 8px 16px 14px; }
 .pa-compact.open .pa-compact-body { display: block; }
-.pa-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.pa-bs { display: flex; align-items: center; gap: 5px; font-size: .76rem; color: #374151; }
-.pa-ba { color: #d1d5db; font-size: .9rem; }
+
+/* Vertikale Schritt-Liste im Genehmigungsprozess */
+.pa-steps-compact { display: flex; flex-direction: column; }
+.pa-sc { display: flex; align-items: flex-start; gap: 9px; padding: 5px 0; }
+.pa-sc strong { font-size: .82rem; font-weight: 600; display: block; color: #1e2939; }
+.pa-sc small  { font-size: .73rem; color: #9ca3af; display: block; margin-top: 1px; line-height: 1.4; }
+.pa-sc-arrow  { color: #d1d5db; padding-left: 9px; font-size: 1rem; line-height: 1; }
 .pa-bn {
   width: 20px; height: 20px; border-radius: 50%;
   background: #e5e9ef; color: #374151;
