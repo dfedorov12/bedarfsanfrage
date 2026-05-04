@@ -26,7 +26,7 @@ const FORM_FIELDS = [
   // Step 3: Beschaffung
   { key:'Beschaffungslogik', label:'Beschaffungsart',              step:3, required:true, alsoTry:['Materialtyp','ProcurementType'] },
   { key:'Artikelnummer',     label:'Artikelnummer / Nummernangaben',step:3,alsoTry:['MaterialNumber','ItemNumber'] },
-  { key:'Lieferant',         label:'Lieferant 1 (bevorzugt)',      step:3, alsoTry:['Vendor','Supplier'] },
+  { key:'Lieferant',         label:'Lieferant 1',                  step:3, alsoTry:['Vendor','Supplier'] },
   { key:'Lieferant2',        label:'Lieferant 2 (Alternative)',    step:3, alsoTry:['Vendor2','Supplier2','Lieferant_2'] },
   { key:'Lieferant3',        label:'Lieferant 3 (Alternative)',    step:3, alsoTry:['Vendor3','Supplier3','Lieferant_3'] },
   { key:'Lieferant4',        label:'Lieferant 4 (Alternative)',    step:3, alsoTry:['Vendor4','Supplier4','Lieferant_4'] },
@@ -68,6 +68,8 @@ let currentView = 'dashboard';
 let prevView    = 'dashboard';
 let wizardData  = {};
 let panelItemId = null;
+// SP column may be misspelled "Stauts" in some tenants → always try both
+const getStatusVal = item => getField(item,'Status') || getField(item,'Stauts') || '';
 
 // ── AUTH ────────────────────────────────────────────────────────────────────
 async function initAuth() {
@@ -404,7 +406,7 @@ function renderDetail(id) {
 
   const createdBy    = item.createdBy?.user?.displayName || item.createdBy?.user?.email || getField(item,'Author') || '–';
   const createdAt    = item.createdDateTime ? fmtDateTime(item.createdDateTime) : '–';
-  const statusVal    = getField(item,'Status') || 'Eingereicht';
+  const statusVal    = getStatusVal(item) || 'Eingereicht';
   const preis        = parseFloat(getField(item,'GeschaetzterPreis') || getField(item, resolvedFields['GeschaetzterPreis'])) || null;
   const menge        = getField(item,'Menge') || getField(item, resolvedFields['Menge']);
   const isEinkauf    = true; // for now, all logged-in users can add order info (adjust if needed)
@@ -496,7 +498,7 @@ function approvalStyle(val) {
 }
 
 function renderApprovalCard(item) {
-  const statusVal = getField(item,'Status') || 'Eingereicht';
+  const statusVal = getStatusVal(item) || 'Eingereicht';
 
   // Find all approval-related columns that have a value on this item
   const found = Object.entries(colByKey)
@@ -645,6 +647,20 @@ function initWizard() {
     .forEach(k => { const el = $id('f-'+k); if(el) el.value = ''; });
   const firstRadio = document.querySelector('input[name=Beschaffungslogik]');
   if (firstRadio) firstRadio.checked = true;
+  // Reset progressive Lieferant disclosure
+  [2,3,4].forEach(n => {
+    const grp = $id('lieferant-extra-' + n);
+    if (grp) grp.style.display = 'none';
+  });
+  // Restore "+" button on Lieferant 1 if it was removed
+  const lief1 = $id('f-Lieferant')?.closest('.form-group');
+  if (lief1 && !$id('btn-add-lieferant-1')) {
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'btn-add-lief';
+    btn.id = 'btn-add-lieferant-1'; btn.onclick = () => addLieferant(2);
+    btn.textContent = '+ Weiteren Lieferanten hinzufügen';
+    lief1.appendChild(btn);
+  }
   $id('preis-route-hint').style.display = 'none';
 }
 
@@ -701,6 +717,14 @@ function wNext(step) {
 
 function wBack(step) { showStep(step - 1); }
 
+function addLieferant(n) {
+  if (n > 4) return;
+  const grp = $id('lieferant-extra-' + n);
+  if (grp) grp.style.display = 'block';
+  $id('btn-add-lieferant-' + (n - 1))?.remove();
+  $id('f-Lieferant' + n)?.focus();
+}
+
 function updatePreisHint() {
   const preis  = parseFloat($id('f-GeschaetzterPreis').value) || 0;
   const menge  = parseFloat($id('f-Menge')?.value) || 1;
@@ -721,7 +745,7 @@ function genehmigungsweg(gesamt) {
   else if (gesamt <  1500) { angebote = 'mind. 2 Angebote';                            freigabe = 'Einkauf + Verwaltung'; }
   else if (gesamt < 10000) { angebote = 'mind. 3 Angebote';                            freigabe = 'Einkauf + Verwaltung'; }
   else if (gesamt < 50000) { angebote = 'mind. 3 Angebote';                            freigabe = 'Einkauf + Verwaltung + GF'; }
-  else                     { angebote = 'Europ. Ausschreibung (mind. 3 Angebote)';     freigabe = 'Einkauf + Verwaltung + GF'; }
+  else                     { angebote = 'Europ. Ausschreibung (mind. 5 Angebote)';     freigabe = 'Einkauf + Verwaltung + GF'; }
   return `Volumen: ${fmtEuro(gesamt)} · ${angebote} · Freigabe: ${freigabe}`;
 }
 
@@ -920,7 +944,7 @@ function getApprovalSummary(item) {
 
 function itemCard(item) {
   const title   = esc(getField(item,'Title') || '–');
-  const status  = getField(item,'Status') || '';
+  const status  = getStatusVal(item);
   const wg      = getField(item, resolvedFields['Warengruppe']    || 'Warengruppe')      || '';
   const preis   = parseFloat(getField(item, resolvedFields['GeschaetzterPreis'] || 'GeschaetzterPreis')) || null;
   const prio    = getField(item, resolvedFields['Prioritaet']     || 'Prioritaet')       || '';
@@ -959,13 +983,48 @@ function itemCard(item) {
     </div>`;
 }
 
+function renderApprovalHighlight(item) {
+  const found = Object.entries(colByKey)
+    .filter(([k,c]) => APPROVAL_RE.test(c.displayName||k) && !SYSTEM_FIELDS.has(k))
+    .map(([k,c]) => ({ label: c.displayName||k, val: getField(item,k) }))
+    .filter(c => c.val);
+  if (!found.length) return '';
+
+  const rejected = found.find(c => /abgelehnt|rejected/i.test(c.val));
+  const approved = found.filter(c => /freigegeben|genehmigt|approved/i.test(c.val));
+  const pending  = found.filter(c => !/abgelehnt|rejected|freigegeben|genehmigt|approved/i.test(c.val));
+
+  if (rejected) {
+    const comment = found.find(c => /kommentar|ablehn|grund/i.test(c.label) && c.val);
+    return `<div class="cr-appr cr-appr-no">
+      <span class="cr-appr-icon">✗</span>
+      <div><strong>Abgelehnt</strong>${comment ? ` — ${esc(String(comment.val))}` : ''}</div>
+    </div>`;
+  }
+  if (approved.length) {
+    const stages = approved.map(c => esc(c.label)).join(', ');
+    return `<div class="cr-appr cr-appr-ok">
+      <span class="cr-appr-icon">✓</span>
+      <div><strong>${approved.length}× Freigabe</strong> — ${stages}</div>
+    </div>`;
+  }
+  if (pending.length) {
+    const stages = pending.map(c => `${esc(c.label)}: ${esc(String(c.val))}`).join(' · ');
+    return `<div class="cr-appr cr-appr-pending">
+      <span class="cr-appr-icon">⏳</span>
+      <div>${stages}</div>
+    </div>`;
+  }
+  return '';
+}
+
 function compactRow(item) {
   const title   = getField(item,'Title') || '–';
-  const status  = getField(item,'Status') || '';
+  const status  = getStatusVal(item);
   const prio    = getField(item, resolvedFields['Prioritaet'] || 'Prioritaet') || '';
-  const created = item.createdDateTime ? fmtRelative(item.createdDateTime) : '';
+  const created = item.createdDateTime ? fmtDate(item.createdDateTime) : '';
   const creator = item.createdBy?.user?.displayName || item.createdBy?.user?.email || '';
-  const appr    = getApprovalSummary(item);
+  const apprBlock = renderApprovalHighlight(item);
 
   // All FORM_FIELDS values
   const fieldRows = FORM_FIELDS.filter(fd => fd.key !== 'Title').map(fd => {
@@ -995,7 +1054,8 @@ function compactRow(item) {
       </div>
       <div class="cr-fields">${fieldRows}</div>
       ${einkaufRows ? `<div class="cr-fields cr-einkauf-block">${einkaufRows}</div>` : ''}
-      ${appr || creator ? `<div class="cr-footer">${appr}<span class="compact-meta">👤 ${esc(creator)} · ID ${item.id} · ${created}</span></div>` : ''}
+      ${apprBlock}
+      <div class="cr-footer"><span class="compact-meta">👤 ${esc(creator)} · Anfragedatum: ${created} · ID ${item.id}</span></div>
     </div>`;
 }
 
@@ -1075,7 +1135,7 @@ async function saveEdits(itemId) {
 }
 
 function renderPanel(item, editMode = false) {
-  const statusVal = getField(item,'Status') || 'Eingereicht';
+  const statusVal = getStatusVal(item) || 'Eingereicht';
   const createdBy = item.createdBy?.user?.displayName || item.createdBy?.user?.email || '–';
   const createdAt = item.createdDateTime ? fmtDate(item.createdDateTime) : '–';
 

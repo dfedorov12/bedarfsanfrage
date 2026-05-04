@@ -225,13 +225,13 @@
                     <input type="radio" name="Beschaffungslogik" value="Bestandsmaterial (bestandsgeführt)" checked/>
                     <div class="rc-icon">📦</div>
                     <div class="rc-title">Bestandsmaterial</div>
-                    <div class="rc-desc">Lagerartikel mit SAP/RQU-Stammdaten. Bestand wird bewirtschaftet – Mindestlagermenge angeben.</div>
+                    <div class="rc-desc">Lagerartikel mit RGU-Stammdaten. Bestand wird bewirtschaftet – Mindestlagermenge angeben.</div>
                   </label>
                   <label class="radio-card">
                     <input type="radio" name="Beschaffungslogik" value="Nicht-bestandsgeführtes Material"/>
                     <div class="rc-icon">🆕</div>
                     <div class="rc-title">Nicht-bestandsgeführtes Material</div>
-                    <div class="rc-desc">Projekt- oder einmalige Beschaffung ohne Lagerführung. Kein SAP-Stammdatz erforderlich.</div>
+                    <div class="rc-desc">Projekt- oder einmalige Beschaffung ohne Lagerführung. Kein RGU-Stammdatz erforderlich.</div>
                   </label>
                   <label class="radio-card">
                     <input type="radio" name="Beschaffungslogik" value="Direktes Material"/>
@@ -256,21 +256,24 @@
                 <div class="field-hint" id="hint-Artikelnummer"></div>
               </div>
               <div class="form-group">
-                <label>Lieferant 1 (bevorzugt)</label>
+                <label>Lieferant 1</label>
                 <input type="text" id="f-Lieferant" placeholder="Firmenname oder Lieferanten-Nr."/>
                 <div class="field-hint" id="hint-Lieferant"></div>
+                <button type="button" class="btn-add-lief" id="btn-add-lieferant-1" onclick="addLieferant(2)">+ Weiteren Lieferanten hinzufügen</button>
               </div>
-              <div class="form-group">
+              <div class="form-group lieferant-extra" id="lieferant-extra-2" style="display:none">
                 <label>Lieferant 2 (Alternative)</label>
                 <input type="text" id="f-Lieferant2" placeholder="optional"/>
                 <div class="field-hint" id="hint-Lieferant2"></div>
+                <button type="button" class="btn-add-lief" id="btn-add-lieferant-2" onclick="addLieferant(3)">+ Weiteren Lieferanten hinzufügen</button>
               </div>
-              <div class="form-group">
+              <div class="form-group lieferant-extra" id="lieferant-extra-3" style="display:none">
                 <label>Lieferant 3 (Alternative)</label>
                 <input type="text" id="f-Lieferant3" placeholder="optional"/>
                 <div class="field-hint" id="hint-Lieferant3"></div>
+                <button type="button" class="btn-add-lief" id="btn-add-lieferant-3" onclick="addLieferant(4)">+ Weiteren Lieferanten hinzufügen</button>
               </div>
-              <div class="form-group">
+              <div class="form-group lieferant-extra" id="lieferant-extra-4" style="display:none">
                 <label>Lieferant 4 (Alternative)</label>
                 <input type="text" id="f-Lieferant4" placeholder="optional"/>
                 <div class="field-hint" id="hint-Lieferant4"></div>

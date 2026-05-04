@@ -187,8 +187,28 @@ body {
 .cr-fv     { font-weight: 500; color: #1e2939; word-break: break-word; }
 .cr-einkauf-block { border-top: 1px dashed #e5e9ef; padding-top: 5px; margin-top: 3px; }
 .cr-einkauf .cr-fl { color: #7e22ce; }
-.cr-footer { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.cr-footer { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 .compact-meta  { font-size: .72rem; color: #9ca3af; }
+
+/* ── Approval highlight in dashboard rows ── */
+.cr-appr {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin-top: 7px; padding: 7px 10px; border-radius: 7px;
+  font-size: .8rem; line-height: 1.4;
+}
+.cr-appr-ok      { background: #f0fdf4; border: 1px solid #bbf7d0; color: #14532d; }
+.cr-appr-no      { background: #fef2f2; border: 1px solid #fecaca; color: #7f1d1d; }
+.cr-appr-pending { background: #fffbeb; border: 1px solid #fde68a; color: #78350f; }
+.cr-appr-icon    { font-size: .95rem; flex-shrink: 0; line-height: 1.3; }
+
+/* ── Add Lieferant button ── */
+.btn-add-lief {
+  margin-top: 6px; padding: 4px 10px;
+  background: none; border: 1px dashed #a5b4fc;
+  border-radius: 6px; color: #4f46e5; font-size: .78rem;
+  cursor: pointer; font-family: inherit;
+}
+.btn-add-lief:hover { background: #eff3ff; border-color: #6366f1; }
 
 /* ── Split layout (mine / all views) ── */
 .view-split { padding: 0 !important; }
