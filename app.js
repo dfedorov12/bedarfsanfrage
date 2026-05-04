@@ -64,6 +64,7 @@ let resolvedFields = {};  // FORM_FIELDS key → actual SP internal name (null i
 let currentView = 'dashboard';
 let prevView    = 'dashboard';
 let wizardData  = {};
+let panelItemId = null;
 
 // ── AUTH ────────────────────────────────────────────────────────────────────
 async function initAuth() {
@@ -237,6 +238,11 @@ async function loadItems(showToast = true) {
     if (currentView === 'dashboard') renderDashboard();
     else if (currentView === 'mine')  renderList('mine');
     else if (currentView === 'all')   renderList('all');
+    // Refresh open panel
+    if (panelItemId && ['mine','all'].includes(currentView)) {
+      const pi = allItems.find(i => String(i.id) === panelItemId);
+      if (pi) { $id(`panel-${currentView}-content`).innerHTML = renderPanel(pi); bindPanelEvents(panelItemId); }
+    }
   } catch(e) {
     toast('Fehler beim Laden: ' + e.message, 'error');
   } finally {
@@ -249,6 +255,15 @@ const VIEW_TITLES = { dashboard:'Dashboard', new:'Neue Bedarfsanfrage',
   mine:'Meine Anfragen', all:'Alle Anfragen', detail:'Anfrage Details' };
 
 function navigate(view, id) {
+  // Close any open panel when leaving list views
+  if (!['mine','all'].includes(view)) {
+    ['mine','all'].forEach(v => {
+      $id('panel-' + v)?.classList.add('hidden');
+      $id('split-' + v)?.classList.remove('has-panel');
+    });
+    panelItemId = null;
+  }
+
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item[data-view]').forEach(n => n.classList.remove('active'));
 
@@ -866,28 +881,63 @@ async function submitRequest() {
 }
 
 // ── CARD / ROW TEMPLATES ─────────────────────────────────────────────────────
+function beschlShort(v) {
+  if (!v) return '';
+  if (/bestand/i.test(v))  return '📦 Bestand';
+  if (/neu|nicht.bestand/i.test(v)) return '🆕 Neu';
+  if (/dienst/i.test(v))   return '🔧 Dienstl.';
+  return v.substring(0, 18);
+}
+
+function getApprovalSummary(item) {
+  const vals = Object.entries(colByKey)
+    .filter(([k,c]) => APPROVAL_RE.test(c.displayName || k) && !SYSTEM_FIELDS.has(k))
+    .map(([k]) => getField(item, k)).filter(Boolean);
+  if (!vals.length) return '';
+  if (vals.some(v => /abgelehnt|rejected/i.test(v)))
+    return `<span class="ica-no">✗ Abgelehnt</span>`;
+  const ok = vals.filter(v => /freigegeben|genehmigt|approved/i.test(v));
+  if (ok.length) return `<span class="ica-ok">✓ ${ok.length}× Freigabe</span>`;
+  return `<span class="ica-pending">⏳ In Prüfung</span>`;
+}
+
 function itemCard(item) {
   const title   = esc(getField(item,'Title') || '–');
   const status  = getField(item,'Status') || '';
-  const wg      = getField(item, resolvedFields['Warengruppe']||'Warengruppe') || '';
-  const preis   = parseFloat(getField(item, resolvedFields['GeschaetzterPreis']||'GeschaetzterPreis')) || null;
-  const prio    = getField(item, resolvedFields['Prioritaet']||'Prioritaet') || '';
+  const wg      = getField(item, resolvedFields['Warengruppe']    || 'Warengruppe')      || '';
+  const preis   = parseFloat(getField(item, resolvedFields['GeschaetzterPreis'] || 'GeschaetzterPreis')) || null;
+  const prio    = getField(item, resolvedFields['Prioritaet']     || 'Prioritaet')       || '';
+  const menge   = getField(item, resolvedFields['Menge']          || 'Menge')            || '';
+  const me      = getField(item, resolvedFields['Mengeneinheit']  || 'Mengeneinheit')    || '';
+  const beschl  = getField(item, resolvedFields['Beschaffungslogik'] || 'Beschaffungslogik') || '';
+  const liefant = getField(item, resolvedFields['Lieferant']      || 'Lieferant')        || '';
+  const termin  = getField(item, resolvedFields['Termin']         || 'Termin')           || '';
+  const ks      = getField(item, resolvedFields['Kostenstelle']   || 'Kostenstelle')     || '';
   const created = item.createdDateTime ? fmtDate(item.createdDateTime) : '';
   const creator = item.createdBy?.user?.displayName || item.createdBy?.user?.email || '';
+  const sel     = panelItemId === String(item.id) ? ' selected' : '';
+  const appr    = getApprovalSummary(item);
 
   return `
-    <div class="item-card" onclick="navigate('detail','${item.id}')">
-      <div class="ic-left">
+    <div class="item-card${sel}" data-id="${item.id}" onclick="openPanel('${item.id}')">
+      <div class="ic-top">
         <div class="ic-title">${prioDot(prio)}${title}</div>
-        <div class="ic-meta">
-          ${wg ? `<span>📦 ${esc(wg)}</span>` : ''}
-          ${creator ? `<span>👤 ${esc(creator)}</span>` : ''}
-          ${created ? `<span>📅 ${created}</span>` : ''}
+        <div class="ic-topright">
+          ${preis ? `<span class="ic-price">${fmtEuro(preis)}</span>` : ''}
+          ${statusBadge(status)}
         </div>
       </div>
-      <div class="ic-right">
-        ${preis ? `<div class="ic-price">${fmtEuro(preis)}</div>` : ''}
-        ${statusBadge(status)}
+      <div class="ic-tags">
+        ${wg      ? `<span class="ic-tag ic-wg">${esc(wg)}</span>` : ''}
+        ${beschl  ? `<span class="ic-tag">${beschlShort(beschl)}</span>` : ''}
+        ${menge && me ? `<span class="ic-tag">⚖ ${esc(menge)} ${esc(me)}</span>` : ''}
+        ${ks      ? `<span class="ic-tag">KST ${esc(ks)}</span>` : ''}
+        ${liefant ? `<span class="ic-tag">🏭 ${esc(liefant)}</span>` : ''}
+        ${termin  ? `<span class="ic-tag">📅 bis ${fmtDate(termin)}</span>` : ''}
+      </div>
+      <div class="ic-footer">
+        <span class="ic-by">${creator ? `👤 ${esc(creator)}` : ''} ${created ? `· ${created}` : ''}</span>
+        ${appr}
       </div>
     </div>`;
 }
@@ -895,12 +945,237 @@ function itemCard(item) {
 function compactRow(item) {
   const title  = esc(getField(item,'Title') || '–');
   const status = getField(item,'Status') || '';
+  const wg     = getField(item, resolvedFields['Warengruppe'] || 'Warengruppe') || '';
+  const preis  = parseFloat(getField(item, resolvedFields['GeschaetzterPreis'] || 'GeschaetzterPreis')) || null;
+  const menge  = getField(item, resolvedFields['Menge'] || 'Menge') || '';
+  const me     = getField(item, resolvedFields['Mengeneinheit'] || 'Mengeneinheit') || '';
   const created = item.createdDateTime ? fmtRelative(item.createdDateTime) : '';
+  const appr   = getApprovalSummary(item);
   return `
     <div class="compact-row" onclick="navigate('detail','${item.id}')">
-      <div class="compact-title">${title}</div>
+      <div class="cr-top">
+        <span class="compact-title">${title}</span>
+        ${statusBadge(status)}
+      </div>
+      <div class="cr-mid">
+        ${wg ? `<span class="ic-tag ic-wg">${esc(wg)}</span>` : ''}
+        ${menge && me ? `<span class="ic-tag">⚖ ${esc(menge)} ${esc(me)}</span>` : ''}
+        ${preis ? `<span class="ic-tag">${fmtEuro(preis)}</span>` : ''}
+        ${appr}
+      </div>
       <div class="compact-meta">ID ${item.id} · ${created}</div>
-      ${statusBadge(status)}
+    </div>`;
+}
+
+// ── SPLIT PANEL ───────────────────────────────────────────────────────────────
+function openPanel(itemId) {
+  if (!['mine','all'].includes(currentView)) { navigate('detail', itemId); return; }
+  panelItemId = String(itemId);
+  const item  = allItems.find(i => String(i.id) === panelItemId);
+  if (!item) return;
+
+  $id(`panel-${currentView}-content`).innerHTML = renderPanel(item);
+  $id(`panel-${currentView}`).classList.remove('hidden');
+  $id(`split-${currentView}`).classList.add('has-panel');
+
+  document.querySelectorAll('.item-card').forEach(c =>
+    c.classList.toggle('selected', c.dataset.id === panelItemId));
+
+  bindPanelEvents(itemId);
+}
+
+function closePanel() {
+  ['mine','all'].forEach(v => {
+    $id('panel-' + v)?.classList.add('hidden');
+    $id('split-' + v)?.classList.remove('has-panel');
+  });
+  panelItemId = null;
+  document.querySelectorAll('.item-card').forEach(c => c.classList.remove('selected'));
+}
+
+function bindPanelEvents(itemId) {
+  $id('panel-close')?.addEventListener('click', closePanel);
+  $id('panel-edit')?.addEventListener('click', () => {
+    const item = allItems.find(i => String(i.id) === String(itemId));
+    if (!item) return;
+    $id(`panel-${currentView}-content`).innerHTML = renderPanel(item, true);
+    bindPanelEditEvents(itemId);
+  });
+  $id('panel-order')?.addEventListener('click', () => openOrderModal(itemId));
+}
+
+function bindPanelEditEvents(itemId) {
+  $id('panel-close')?.addEventListener('click', closePanel);
+  $id('panel-save')?.addEventListener('click', () => saveEdits(itemId));
+  $id('panel-cancel')?.addEventListener('click', () => {
+    const item = allItems.find(i => String(i.id) === String(itemId));
+    if (item) { $id(`panel-${currentView}-content`).innerHTML = renderPanel(item); bindPanelEvents(itemId); }
+  });
+}
+
+async function saveEdits(itemId) {
+  const data = {};
+  document.querySelectorAll('.pf-input[data-key]').forEach(inp => {
+    data[inp.dataset.key] = inp.value;
+  });
+  const fields = buildFields(data, FORM_FIELDS);
+  if (!Object.keys(fields).length) return;
+
+  const btn = $id('panel-save');
+  if (btn) { btn.disabled = true; btn.textContent = 'Speichert…'; }
+
+  const patch = { ...fields };
+  const skipped = [];
+  for (let i = 0; i < 15; i++) {
+    try {
+      await gPatch(`/sites/${siteId}/lists/${listId}/items/${itemId}/fields`, patch);
+      if (skipped.length) toast(`Gespeichert (übersprungen: ${skipped.join(', ')})`, 'info');
+      else toast('Gespeichert ✓', 'success');
+      await loadItems(false);
+      return;
+    } catch(e) {
+      const m = e.message.match(/Field '([^']+)' (?:is not recognized|does not exist)/i);
+      if (!m) { toast('Fehler: ' + e.message, 'error'); if (btn) { btn.disabled=false; btn.textContent='Speichern'; } return; }
+      skipped.push(m[1]); delete patch[m[1]];
+    }
+  }
+  toast('Fehler: Zu viele unbekannte Felder.', 'error');
+}
+
+function renderPanel(item, editMode = false) {
+  const statusVal = getField(item,'Status') || 'Eingereicht';
+  const createdBy = item.createdBy?.user?.displayName || item.createdBy?.user?.email || '–';
+  const createdAt = item.createdDateTime ? fmtDate(item.createdDateTime) : '–';
+
+  const gv  = key => getField(item, resolvedFields[key] || key) ?? '';
+  const dv  = v   => v ? String(v).slice(0,10) : '';  // YYYY-MM-DD for date inputs
+
+  const choices = key => {
+    const sp = resolvedFields[key] || key;
+    return colByKey[sp]?.choice?.choices || null;
+  };
+
+  const WG_OPTS   = choices('Warengruppe')      || ['Bürobedarf & Büroausstattung','IT & Elektronik','Werkzeug & Maschinen','Rohstoffe & Materialien','Dienstleistungen','Fahrzeuge & Transport','Gebäude & Infrastruktur','Schutzausrüstung (PSA)','Sonstiges'];
+  const PRIO_OPTS = choices('Prioritaet')       || ['Normal','Hoch','Dringend'];
+  const ME_OPTS   = choices('Mengeneinheit')    || ['Stück','kg','Liter','m','m²','Paket','Karton','Palette','Stunden'];
+  const BL_OPTS   = choices('Beschaffungslogik')|| ['Bestandsmaterial (bestandsgeführt)','Neues Material (nicht-bestandsgeführt)','Dienstleistung'];
+
+  const fRow = (fd, type, opts) => {
+    const raw = gv(fd.key);
+    const lbl = `<span class="pf-label">${esc(fd.label)}</span>`;
+    if (editMode) {
+      let inp;
+      if (opts) {
+        const optHtml = (fd.required ? [] : ['']).concat(opts)
+          .map(o => `<option value="${esc(o)}"${String(raw)===o?' selected':''}>${esc(o||'–')}</option>`).join('');
+        inp = `<select class="pf-input" data-key="${fd.key}">${optHtml}</select>`;
+      } else if (type === 'textarea') {
+        inp = `<textarea class="pf-input" data-key="${fd.key}" rows="2">${esc(String(raw))}</textarea>`;
+      } else {
+        const val = type === 'date' ? dv(raw) : esc(String(raw));
+        inp = `<input type="${type}" class="pf-input" data-key="${fd.key}" value="${val}"/>`;
+      }
+      return `<div class="pf-row">${lbl}${inp}</div>`;
+    }
+    if (!raw && raw !== 0) return '';
+    let display = String(raw);
+    if (fd.key === 'GeschaetzterPreis' || fd.key === 'TatsaechlicherPreis') display = fmtEuro(raw);
+    else if (fd.key === 'Termin' || fd.key === 'Lieferdatum') display = fmtDate(raw);
+    return `<div class="pf-row">${lbl}<span class="pf-val">${esc(display)}</span></div>`;
+  };
+
+  const preis = parseFloat(gv('GeschaetzterPreis')) || 0;
+  const menge = parseFloat(gv('Menge')) || 1;
+  const gesamtHint = !editMode && preis > 0 ? genehmigungsweg(preis * menge) : '';
+
+  const orderNr  = gv('Bestellnummer');
+  const lieferd  = gv('Lieferdatum');
+  const tatPreis = gv('TatsaechlicherPreis');
+
+  const buttons = editMode
+    ? `<button class="btn btn-primary btn-sm" id="panel-save">Speichern</button>
+       <button class="btn btn-ghost btn-sm" id="panel-cancel">Abbrechen</button>`
+    : `<button class="btn btn-outline btn-sm" id="panel-edit">✏ Bearbeiten</button>
+       <button class="btn btn-outline btn-sm" id="panel-order">📦 Einkauf</button>`;
+
+  // Approval inner HTML (reuse logic from renderApprovalCard but without the wrapping card)
+  const approvalInner = (() => {
+    const found = Object.entries(colByKey)
+      .filter(([k,c]) => APPROVAL_RE.test(c.displayName||k) && !SYSTEM_FIELDS.has(k))
+      .map(([k,c]) => ({ key:k, label:c.displayName||k, val:getField(item,k) }))
+      .filter(c => c.val !== null && c.val !== undefined && c.val !== '');
+    if (!found.length) return '<p class="ap-empty">Noch keine Genehmigungsdaten.</p>';
+    const stages = STAGE_MAP.map(s => ({ label:s.label, cols:found.filter(c=>s.re.test(c.label)||s.re.test(c.key)) })).filter(s=>s.cols.length);
+    const assigned = new Set(stages.flatMap(s=>s.cols.map(c=>c.key)));
+    const extra = found.filter(c=>!assigned.has(c.key));
+    const mkStage = s => {
+      const dec = s.cols.find(c=>/genehmig|entscheid|freigab|ablehn/i.test(c.label));
+      const others = s.cols.filter(c=>c!==dec);
+      const st = dec ? approvalStyle(dec.val) : {bg:'#f3f4f6',color:'#6b7280',dot:'○',cls:'ap-neutral'};
+      return `<div class="approval-stage"><div class="ap-dot ${st.cls}">${st.dot}</div><div class="ap-body">
+        <div class="ap-stage-label">${esc(s.label)}</div>
+        ${dec?`<span class="ap-badge" style="background:${st.bg};color:${st.color}">${esc(String(dec.val))}</span>`:''}
+        ${others.map(c=>`<div class="ap-meta">${esc(c.label)}: ${esc(String(c.val))}</div>`).join('')}
+      </div></div>`;
+    };
+    const mkExtra = c => {
+      const st = approvalStyle(c.val);
+      if (/kommentar|ablehn|grund/i.test(c.label)) return `<div class="ap-comment-box"><strong>${esc(c.label)}:</strong> ${esc(String(c.val))}</div>`;
+      return `<div class="approval-stage"><div class="ap-dot ${st.cls}">${st.dot}</div><div class="ap-body"><div class="ap-stage-label">${esc(c.label)}</div><span class="ap-badge" style="background:${st.bg};color:${st.color}">${esc(String(c.val))}</span></div></div>`;
+    };
+    return stages.map(mkStage).join('') + extra.map(mkExtra).join('');
+  })();
+
+  return `
+    <div class="panel-hdr">
+      <div class="panel-hdr-top">
+        <div class="panel-meta">
+          <span class="item-id">ID ${item.id}</span>
+          ${statusBadge(statusVal)}
+          ${prioTag(gv('Prioritaet'))}
+        </div>
+        <button class="panel-close" id="panel-close" title="Schließen">✕</button>
+      </div>
+      <div class="panel-title">${esc(gv('Title') || '–')}</div>
+      <div class="panel-byline">von ${esc(createdBy)} · ${createdAt}</div>
+      <div class="panel-actions">${buttons}</div>
+    </div>
+
+    <div class="panel-body">
+      <div class="pf-section">
+        <div class="pf-sec-title">Bedarf</div>
+        ${fRow(FORM_FIELDS.find(f=>f.key==='Title'),       'text')}
+        ${fRow(FORM_FIELDS.find(f=>f.key==='Beschreibung'),'textarea')}
+        ${fRow(FORM_FIELDS.find(f=>f.key==='Warengruppe'), 'text', WG_OPTS)}
+        ${fRow(FORM_FIELDS.find(f=>f.key==='Prioritaet'),  'text', PRIO_OPTS)}
+      </div>
+      <div class="pf-section">
+        <div class="pf-sec-title">Mengengaben</div>
+        ${fRow(FORM_FIELDS.find(f=>f.key==='Menge'),             'number')}
+        ${fRow(FORM_FIELDS.find(f=>f.key==='Mengeneinheit'),     'text', ME_OPTS)}
+        ${fRow(FORM_FIELDS.find(f=>f.key==='Mindestlagermenge'), 'number')}
+        ${fRow(FORM_FIELDS.find(f=>f.key==='Termin'),            'date')}
+      </div>
+      <div class="pf-section">
+        <div class="pf-sec-title">Beschaffungsdetails</div>
+        ${fRow(FORM_FIELDS.find(f=>f.key==='Beschaffungslogik'),'text', BL_OPTS)}
+        ${fRow(FORM_FIELDS.find(f=>f.key==='Artikelnummer'),    'text')}
+        ${fRow(FORM_FIELDS.find(f=>f.key==='Lieferant'),        'text')}
+        ${fRow(FORM_FIELDS.find(f=>f.key==='GeschaetzterPreis'),'number')}
+        ${fRow(FORM_FIELDS.find(f=>f.key==='Kostenstelle'),     'text')}
+        ${gesamtHint ? `<div class="info-box info" style="margin-top:8px;font-size:.78rem">${gesamtHint}</div>` : ''}
+      </div>
+      <div class="pf-section">
+        <div class="pf-sec-title">Status &amp; Genehmigung</div>
+        ${approvalInner}
+      </div>
+      <div class="pf-section">
+        <div class="pf-sec-title">Bestellung (Einkauf)</div>
+        ${orderNr  ? `<div class="pf-row"><span class="pf-label">Bestellnummer</span><span class="pf-val">${esc(orderNr)}</span></div>` : ''}
+        ${lieferd  ? `<div class="pf-row"><span class="pf-label">Lieferdatum</span><span class="pf-val">${fmtDate(lieferd)}</span></div>` : ''}
+        ${tatPreis ? `<div class="pf-row"><span class="pf-label">Tatsächl. Preis</span><span class="pf-val">${fmtEuro(tatPreis)}</span></div>` : ''}
+        ${!orderNr && !lieferd && !tatPreis ? '<p class="no-order">Noch keine Bestelldaten.</p>' : ''}
+      </div>
     </div>`;
 }
 

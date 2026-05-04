@@ -288,34 +288,48 @@
         </div>
       </div>
 
-      <!-- MINE / ALL (shared template, rendered by JS) -->
-      <div id="view-mine" class="view">
-        <div class="view-toolbar">
-          <div class="search-box">
-            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
-            <input type="text" id="search-mine" placeholder="Suchen …" oninput="filterView('mine')"/>
+      <!-- MINE / ALL — split layout: list left, detail panel right -->
+      <div id="view-mine" class="view view-split">
+        <div class="split-layout" id="split-mine">
+          <div class="split-list">
+            <div class="view-toolbar">
+              <div class="search-box">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+                <input type="text" id="search-mine" placeholder="Suchen …" oninput="filterView('mine')"/>
+              </div>
+              <select id="filter-mine-status" onchange="filterView('mine')">
+                <option value="">Alle Status</option>
+              </select>
+            </div>
+            <div id="list-mine" class="item-cards"></div>
           </div>
-          <select id="filter-mine-status" onchange="filterView('mine')">
-            <option value="">Alle Status</option>
-          </select>
+          <div class="split-panel hidden" id="panel-mine">
+            <div id="panel-mine-content"></div>
+          </div>
         </div>
-        <div id="list-mine" class="item-cards"></div>
       </div>
 
-      <div id="view-all" class="view">
-        <div class="view-toolbar">
-          <div class="search-box">
-            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
-            <input type="text" id="search-all" placeholder="Suchen …" oninput="filterView('all')"/>
+      <div id="view-all" class="view view-split">
+        <div class="split-layout" id="split-all">
+          <div class="split-list">
+            <div class="view-toolbar">
+              <div class="search-box">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+                <input type="text" id="search-all" placeholder="Suchen …" oninput="filterView('all')"/>
+              </div>
+              <select id="filter-all-status" onchange="filterView('all')">
+                <option value="">Alle Status</option>
+              </select>
+            </div>
+            <div id="list-all" class="item-cards"></div>
           </div>
-          <select id="filter-all-status" onchange="filterView('all')">
-            <option value="">Alle Status</option>
-          </select>
+          <div class="split-panel hidden" id="panel-all">
+            <div id="panel-all-content"></div>
+          </div>
         </div>
-        <div id="list-all" class="item-cards"></div>
       </div>
 
-      <!-- DETAIL -->
+      <!-- DETAIL (used from dashboard click) -->
       <div id="view-detail" class="view">
         <button class="btn btn-ghost back-btn" id="detail-back">← Zurück</button>
         <div id="detail-content"></div>
