@@ -144,8 +144,13 @@ body {
 .stat-value { font-size: 1.5rem; font-weight: 700; line-height: 1; }
 .stat-label { font-size: .75rem; color: #6b7280; margin-top: 2px; }
 
-/* ── Two col ── */
-.two-col { display: grid; grid-template-columns: 3fr 2fr; gap: 14px; }
+/* ── Dashboard layout ── */
+.dash-cols {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 16px;
+  align-items: start;
+}
 
 /* ── Card ── */
 .card { background: #fff; border: 1px solid #e5e9ef; border-radius: 12px; overflow: hidden; }
@@ -155,40 +160,73 @@ body {
 }
 .card-header h2 { font-size: .92rem; font-weight: 600; }
 
-/* ── PA info panel ── */
-.pa-info { padding: 16px 18px; display: flex; flex-direction: column; gap: 0; }
-.pa-step { display: flex; align-items: flex-start; gap: 10px; padding: 7px 0; }
-.pa-num {
-  width: 26px; height: 26px; border-radius: 50%;
-  background: #e5e9ef; color: #374151;
-  font-size: .78rem; font-weight: 700;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.pa-num.pa-auto { background: #fffbeb; color: #b45309; font-size: .85rem; }
-.pa-num.pa-ok   { background: #f0fdf4; color: #16a34a; }
-.pa-step strong { font-size: .85rem; font-weight: 600; }
-.pa-step small  { font-size: .75rem; color: #9ca3af; display: block; margin-top: 1px; }
-.pa-arrow { color: #d1d5db; font-size: 1.1rem; padding-left: 13px; line-height: 1; }
-.pa-final { opacity: .7; }
-
 /* ── Compact rows (dashboard) ── */
-.compact-row {
-  padding: 11px 18px; border-bottom: 1px solid #f3f4f6;
-  cursor: pointer; transition: background .1s;
+.cr2 {
+  padding: 12px 18px; border-bottom: 1px solid #f3f4f6;
+  cursor: pointer; transition: background .12s;
 }
-.compact-row:hover { background: #f9fafb; }
-.compact-row:last-child { border-bottom: none; }
-.cr-top    { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
-.compact-title { font-size: .875rem; font-weight: 600; flex: 1; }
-.cr-badges { display: flex; gap: 5px; flex-shrink: 0; flex-wrap: wrap; }
-.cr-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 1px 16px; margin-bottom: 5px; }
-.cr-field  { display: flex; gap: 5px; font-size: .775rem; padding: 2px 0; }
-.cr-fl     { color: #9ca3af; white-space: nowrap; flex-shrink: 0; }
-.cr-fv     { font-weight: 500; color: #1e2939; word-break: break-word; }
-.cr-einkauf-block { border-top: 1px dashed #e5e9ef; padding-top: 5px; margin-top: 3px; }
-.cr-einkauf .cr-fl { color: #7e22ce; }
-.cr-footer { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-.compact-meta  { font-size: .72rem; color: #9ca3af; }
+.cr2:hover { background: #f9fafb; }
+.cr2:last-child { border-bottom: none; }
+.cr2-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+.cr2-title { font-size: .9rem; font-weight: 600; flex: 1; line-height: 1.4; color: #1e2939; }
+.cr2-right { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+.cr2-price { font-size: .82rem; font-weight: 700; color: #374151; white-space: nowrap; }
+.cr2-tags  { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px; }
+.cr2-tag   { font-size: .72rem; padding: 2px 8px; border-radius: 999px; background: #f3f4f6; color: #4b5563; white-space: nowrap; }
+.cr2-tag.cr2-wg { background: #eff3ff; color: #3730a3; }
+.cr2-foot  { display: flex; align-items: center; gap: 8px; }
+.cr2-meta  { font-size: .72rem; color: #b0b7c3; flex: 1; }
+
+/* ── Genehmigungsprozess Stepper ── */
+.pa-stepper { padding: 18px 18px 8px; }
+.pa-step {
+  display: flex; gap: 12px;
+}
+.pa-step-ind {
+  display: flex; flex-direction: column; align-items: center;
+  flex-shrink: 0; width: 28px;
+}
+.pa-step-dot {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #e5e9ef; color: #374151;
+  font-size: .75rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; position: relative; z-index: 1;
+  border: 2px solid #fff; box-shadow: 0 0 0 1px #e5e9ef;
+}
+.pa-step-dot.auto { background: #fff8e1; color: #b45309; box-shadow: 0 0 0 1px #fde68a; }
+.pa-step-dot.ok   { background: #dcfce7; color: #16a34a; box-shadow: 0 0 0 1px #86efac; }
+.pa-step-line {
+  width: 2px; flex: 1; min-height: 14px;
+  background: linear-gradient(to bottom, #d1d5db, #e5e9ef);
+  margin: 3px 0;
+}
+.pa-step-body { flex: 1; padding-bottom: 18px; }
+.pa-step:last-child .pa-step-body { padding-bottom: 0; }
+.pa-step-body strong { font-size: .84rem; font-weight: 600; color: #1e2939; display: block; margin-top: 4px; }
+.pa-step-body small  { font-size: .73rem; color: #9ca3af; display: block; margin-top: 2px; line-height: 1.45; }
+
+/* ── Schwellwerte Tabelle ── */
+.pa-thresholds {
+  margin: 0 18px 18px;
+  border: 1px solid #e5e9ef; border-radius: 9px;
+  overflow: hidden;
+}
+.pa-th-title {
+  font-size: .7rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: #9ca3af;
+  padding: 8px 12px; background: #f8fafc;
+  border-bottom: 1px solid #e5e9ef;
+}
+.pa-th-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 12px; border-bottom: 1px solid #f3f4f6; gap: 8px;
+  font-size: .78rem;
+}
+.pa-th-row:last-child { border-bottom: none; }
+.pa-th-row.highlight { background: #fef9ec; }
+.pa-th-range { font-weight: 700; color: #1e2939; white-space: nowrap; }
+.pa-th-rule  { color: #6b7280; text-align: right; }
 
 /* ── Approval highlight in dashboard rows ── */
 .cr-appr {
@@ -531,49 +569,6 @@ textarea.pf-input { resize: vertical; min-height: 52px; }
 .toast.out     { opacity: 0; transform: translateY(10px); }
 @keyframes toastIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
 
-/* ── Dashboard split layout ── */
-#view-dashboard { padding: 0 !important; display: flex; flex-direction: column; }
-.dash-top { padding: 16px 22px 10px; background: #f0f2f5; flex-shrink: 0; }
-.dash-top .stats-grid { margin-bottom: 0; }
-#split-dashboard { flex: 1; min-height: 0; height: auto; }
-#split-dashboard .split-list { padding-top: 0; }
-.dash-split-list { display: flex; flex-direction: column; }
-.dash-toolbar {
-  padding: 12px 18px 10px; flex-shrink: 0;
-  border-bottom: 1px solid #e5e9ef; background: #fff;
-  justify-content: space-between; margin-bottom: 0;
-}
-.dash-toolbar-left { display: flex; align-items: center; gap: 10px; flex: 1; flex-wrap: wrap; }
-#list-dashboard { padding: 12px 18px; }
-
-/* ── Compact Genehmigungsprozess (collapsible, links) ── */
-.pa-compact { border-bottom: 1px solid #e5e9ef; background: #f8fafc; flex-shrink: 0; }
-.pa-compact-toggle {
-  width: 100%; display: flex; align-items: center; gap: 7px;
-  padding: 9px 16px; background: transparent; border: none;
-  cursor: pointer; font-size: .8rem; color: #4b5563; font-weight: 500;
-  font-family: inherit; text-align: left;
-}
-.pa-compact-toggle:hover { background: #f1f5f9; }
-.pa-toggle-arr { margin-left: auto; transition: transform .2s; font-size: .7rem; color: #9ca3af; }
-.pa-compact.open .pa-toggle-arr { transform: rotate(180deg); }
-.pa-compact-body { display: none; padding: 8px 16px 14px; }
-.pa-compact.open .pa-compact-body { display: block; }
-
-/* Vertikale Schritt-Liste im Genehmigungsprozess */
-.pa-steps-compact { display: flex; flex-direction: column; }
-.pa-sc { display: flex; align-items: flex-start; gap: 9px; padding: 5px 0; }
-.pa-sc strong { font-size: .82rem; font-weight: 600; display: block; color: #1e2939; }
-.pa-sc small  { font-size: .73rem; color: #9ca3af; display: block; margin-top: 1px; line-height: 1.4; }
-.pa-sc-arrow  { color: #d1d5db; padding-left: 9px; font-size: 1rem; line-height: 1; }
-.pa-bn {
-  width: 20px; height: 20px; border-radius: 50%;
-  background: #e5e9ef; color: #374151;
-  font-size: .65rem; font-weight: 700;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.pa-bn.pa-auto { background: #fffbeb; color: #b45309; }
-.pa-bn.pa-ok   { background: #f0fdf4; color: #16a34a; }
 
 /* ── Responsive ── */
 @media (max-width: 960px) {
@@ -582,7 +577,7 @@ textarea.pf-input { resize: vertical; min-height: 52px; }
   .main { margin-left: 0; }
   .menu-toggle { display: flex; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
-  .two-col { grid-template-columns: 1fr; }
+  .dash-cols  { grid-template-columns: 1fr; }
   .detail-grid { grid-template-columns: 1fr; }
   .review-grid { grid-template-columns: 1fr 1fr; }
 }

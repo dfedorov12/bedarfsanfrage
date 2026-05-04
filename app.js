@@ -248,7 +248,7 @@ async function loadItems(showToast = true) {
     else if (currentView === 'mine')  renderList('mine');
     else if (currentView === 'all')   renderList('all');
     // Refresh open panel
-    if (panelItemId && ['mine','all','dashboard'].includes(currentView)) {
+    if (panelItemId && ['mine','all'].includes(currentView)) {
       const pi = allItems.find(i => String(i.id) === panelItemId);
       if (pi) { $id(`panel-${currentView}-content`).innerHTML = renderPanel(pi); bindPanelEvents(panelItemId); }
     }
@@ -339,14 +339,11 @@ function renderDashboard() {
   $id('st-approved').textContent = approved;
   $id('st-volume').textContent   = fmtEuro(volume);
 
-  // Populate status filter (once)
-  const sel = $id('filter-dashboard-status');
-  if (sel && sel.options.length <= 1) {
-    const statuses = [...new Set(allItems.map(i => getStatusVal(i)).filter(Boolean))];
-    statuses.forEach(s => sel.add(new Option(s, s)));
-  }
-
-  filterView('dashboard');
+  // Last 10 items as compact dashboard rows
+  const recent = allItems.slice(0, 10);
+  $id('dash-recent').innerHTML = recent.length
+    ? recent.map(i => compactRow(i)).join('')
+    : emptyState('Noch keine Anfragen vorhanden');
 }
 
 function isOpenStatus(s) {
@@ -1025,46 +1022,43 @@ function compactRow(item) {
   const title   = getField(item,'Title') || '–';
   const status  = getStatusVal(item);
   const prio    = getField(item, resolvedFields['Prioritaet'] || 'Prioritaet') || '';
+  const wg      = getField(item, resolvedFields['Warengruppe'] || 'Warengruppe') || '';
+  const preis   = parseFloat(getField(item, resolvedFields['GeschaetzterPreis'] || 'GeschaetzterPreis')) || null;
+  const beschl  = getField(item, resolvedFields['Beschaffungslogik'] || 'Beschaffungslogik') || '';
+  const menge   = getField(item, resolvedFields['Menge'] || 'Menge') || '';
+  const me      = getField(item, resolvedFields['Mengeneinheit'] || 'Mengeneinheit') || '';
+  const termin  = getField(item, resolvedFields['Termin'] || 'Termin') || '';
   const created = item.createdDateTime ? fmtDate(item.createdDateTime) : '';
   const creator = item.createdBy?.user?.displayName || item.createdBy?.user?.email || '';
-  const apprBlock = renderApprovalHighlight(item);
+  const apprSum = getApprovalSummary(item);
 
-  // All FORM_FIELDS values
-  const fieldRows = FORM_FIELDS.filter(fd => fd.key !== 'Title').map(fd => {
-    const v = getField(item, resolvedFields[fd.key] || fd.key);
-    if (!v && v !== 0) return '';
-    let display = String(v);
-    if (fd.key === 'GeschaetzterPreis') display = fmtEuro(v);
-    else if (fd.key === 'Termin')       display = fmtDate(v);
-    return `<div class="cr-field"><span class="cr-fl">${esc(fd.label)}:</span><span class="cr-fv">${esc(display)}</span></div>`;
-  }).filter(Boolean).join('');
-
-  // EINKAUF_FIELDS values
-  const einkaufRows = EINKAUF_FIELDS.map(fd => {
-    const v = getField(item, resolvedFields[fd.key] || fd.key);
-    if (!v && v !== 0) return '';
-    let display = String(v);
-    if (fd.key === 'TatsaechlicherPreis') display = fmtEuro(v);
-    else if (fd.key === 'Lieferdatum')    display = fmtDate(v);
-    return `<div class="cr-field cr-einkauf"><span class="cr-fl">${esc(fd.label)}:</span><span class="cr-fv">${esc(display)}</span></div>`;
-  }).filter(Boolean).join('');
+  const tags = [
+    wg     ? `<span class="cr2-tag cr2-wg">${esc(wg)}</span>` : '',
+    beschl ? `<span class="cr2-tag">${beschlShort(beschl)}</span>` : '',
+    menge && me ? `<span class="cr2-tag">⚖ ${esc(menge)} ${esc(me)}</span>` : '',
+    termin ? `<span class="cr2-tag">📅 ${fmtDate(termin)}</span>` : '',
+  ].filter(Boolean).join('');
 
   return `
-    <div class="compact-row" onclick="navigate('detail','${item.id}')">
-      <div class="cr-top">
-        <span class="compact-title">${esc(title)}</span>
-        <div class="cr-badges">${statusBadge(status)}${prioTag(prio)}</div>
+    <div class="cr2" onclick="navigate('detail','${item.id}')">
+      <div class="cr2-head">
+        <div class="cr2-title">${prioDot(prio)}${esc(title)}</div>
+        <div class="cr2-right">
+          ${preis ? `<span class="cr2-price">${fmtEuro(preis)}</span>` : ''}
+          ${statusBadge(status)}
+        </div>
       </div>
-      <div class="cr-fields">${fieldRows}</div>
-      ${einkaufRows ? `<div class="cr-fields cr-einkauf-block">${einkaufRows}</div>` : ''}
-      ${apprBlock}
-      <div class="cr-footer"><span class="compact-meta">👤 ${esc(creator)} · Anfragedatum: ${created} · ID ${item.id}</span></div>
+      ${tags ? `<div class="cr2-tags">${tags}</div>` : ''}
+      <div class="cr2-foot">
+        <span class="cr2-meta">${creator ? `👤 ${esc(creator)}` : ''}${created ? ` · ${created}` : ''} · #${item.id}</span>
+        ${apprSum}
+      </div>
     </div>`;
 }
 
 // ── SPLIT PANEL ───────────────────────────────────────────────────────────────
 function openPanel(itemId) {
-  if (!['mine','all','dashboard'].includes(currentView)) { navigate('detail', itemId); return; }
+  if (!['mine','all'].includes(currentView)) { navigate('detail', itemId); return; }
   panelItemId = String(itemId);
   const item  = allItems.find(i => String(i.id) === panelItemId);
   if (!item) return;
@@ -1080,7 +1074,7 @@ function openPanel(itemId) {
 }
 
 function closePanel() {
-  ['mine','all','dashboard'].forEach(v => {
+  ['mine','all'].forEach(v => {
     $id('panel-' + v)?.classList.add('hidden');
     $id('split-' + v)?.classList.remove('has-panel');
   });
