@@ -178,10 +178,17 @@ body {
 }
 .compact-row:hover { background: #f9fafb; }
 .compact-row:last-child { border-bottom: none; }
-.cr-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-.compact-title { font-size: .875rem; font-weight: 500; flex: 1; }
-.cr-mid { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 3px; }
-.compact-meta  { font-size: .73rem; color: #9ca3af; }
+.cr-top    { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+.compact-title { font-size: .875rem; font-weight: 600; flex: 1; }
+.cr-badges { display: flex; gap: 5px; flex-shrink: 0; flex-wrap: wrap; }
+.cr-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 1px 16px; margin-bottom: 5px; }
+.cr-field  { display: flex; gap: 5px; font-size: .775rem; padding: 2px 0; }
+.cr-fl     { color: #9ca3af; white-space: nowrap; flex-shrink: 0; }
+.cr-fv     { font-weight: 500; color: #1e2939; word-break: break-word; }
+.cr-einkauf-block { border-top: 1px dashed #e5e9ef; padding-top: 5px; margin-top: 3px; }
+.cr-einkauf .cr-fl { color: #7e22ce; }
+.cr-footer { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.compact-meta  { font-size: .72rem; color: #9ca3af; }
 
 /* ── Split layout (mine / all views) ── */
 .view-split { padding: 0 !important; }
@@ -351,7 +358,7 @@ textarea.pf-input { resize: vertical; min-height: 52px; }
 .field-hint.warn { color: #b45309; }
 
 /* ── Radio Cards ── */
-.radio-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+.radio-cards { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; }
 .radio-card {
   border: 2px solid #e5e9ef; border-radius: 9px; padding: 12px;
   cursor: pointer; transition: border-color .12s, background .12s;

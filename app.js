@@ -22,11 +22,14 @@ const FORM_FIELDS = [
   { key:'Menge',             label:'Menge',                        step:2, required:true, alsoTry:['Quantity','Amount'] },
   { key:'Mengeneinheit',     label:'Mengeneinheit',                step:2, required:true, alsoTry:['Unit','UnitOfMeasure'] },
   { key:'Mindestlagermenge', label:'Mindestlagermenge',            step:2, alsoTry:['MinStock','MinLager'] },
-  { key:'Termin',            label:'Benötigt bis',                 step:2, alsoTry:['Deadline','DueDate','Ben_x00f6_tigtBis'] },
+  { key:'Termin',            label:'Benötigt bis',                 step:2, required:true, alsoTry:['Deadline','DueDate','Ben_x00f6_tigtBis'] },
   // Step 3: Beschaffung
-  { key:'Beschaffungslogik', label:'Beschaffungslogik',            step:3, required:true, alsoTry:['Materialtyp','ProcurementType'] },
+  { key:'Beschaffungslogik', label:'Beschaffungsart',              step:3, required:true, alsoTry:['Materialtyp','ProcurementType'] },
   { key:'Artikelnummer',     label:'Artikelnummer / Nummernangaben',step:3,alsoTry:['MaterialNumber','ItemNumber'] },
-  { key:'Lieferant',         label:'Lieferant (Lieferanten-Logik)',step:3, alsoTry:['Vendor','Supplier'] },
+  { key:'Lieferant',         label:'Lieferant 1 (bevorzugt)',      step:3, alsoTry:['Vendor','Supplier'] },
+  { key:'Lieferant2',        label:'Lieferant 2 (Alternative)',    step:3, alsoTry:['Vendor2','Supplier2','Lieferant_2'] },
+  { key:'Lieferant3',        label:'Lieferant 3 (Alternative)',    step:3, alsoTry:['Vendor3','Supplier3','Lieferant_3'] },
+  { key:'Lieferant4',        label:'Lieferant 4 (Alternative)',    step:3, alsoTry:['Vendor4','Supplier4','Lieferant_4'] },
   { key:'GeschaetzterPreis', label:'Geschätzter Preis netto (€)',  step:3, alsoTry:['EstimatedPrice','Preis','Price'] },
   { key:'Kostenstelle',      label:'Kostenstelle',                 step:3, alsoTry:['CostCenter'] },
 ];
@@ -637,9 +640,11 @@ function initWizard() {
   }
   // Reset fields
   ['Title','Beschreibung','Warengruppe','Prioritaet','Menge','Mengeneinheit',
-   'Mindestlagermenge','Termin','Artikelnummer','Lieferant','GeschaetzterPreis','Kostenstelle']
+   'Mindestlagermenge','Termin','Artikelnummer','Lieferant','Lieferant2','Lieferant3','Lieferant4',
+   'GeschaetzterPreis','Kostenstelle']
     .forEach(k => { const el = $id('f-'+k); if(el) el.value = ''; });
-  document.querySelector('input[name=Beschaffungslogik][value="Bestandsmaterial (bestandsgeführt)"]').checked = true;
+  const firstRadio = document.querySelector('input[name=Beschaffungslogik]');
+  if (firstRadio) firstRadio.checked = true;
   $id('preis-route-hint').style.display = 'none';
 }
 
@@ -666,21 +671,26 @@ function wNext(step) {
       Prioritaet:   $id('f-Prioritaet').value,
     };
   } else if (step === 2) {
-    const menge = $id('f-Menge').value;
-    const me    = $id('f-Mengeneinheit').value;
+    const menge  = $id('f-Menge').value;
+    const me     = $id('f-Mengeneinheit').value;
+    const termin = $id('f-Termin').value;
     if (!menge || parseFloat(menge) <= 0) { toast('Bitte gültige Menge eingeben.', 'error'); return; }
-    if (!me)  { toast('Bitte Mengeneinheit wählen.', 'error'); return; }
+    if (!me)     { toast('Bitte Mengeneinheit wählen.', 'error'); return; }
+    if (!termin) { toast('Bitte Benötigt-bis-Datum angeben.', 'error'); return; }
     wizardData.step2 = {
       Menge:             menge,
       Mengeneinheit:     me,
       Mindestlagermenge: $id('f-Mindestlagermenge').value || null,
-      Termin:            $id('f-Termin').value || null,
+      Termin:            termin,
     };
   } else if (step === 3) {
     wizardData.step3 = {
       Beschaffungslogik: document.querySelector('input[name=Beschaffungslogik]:checked')?.value || '',
       Artikelnummer:     $id('f-Artikelnummer').value.trim(),
       Lieferant:         $id('f-Lieferant').value.trim(),
+      Lieferant2:        $id('f-Lieferant2').value.trim(),
+      Lieferant3:        $id('f-Lieferant3').value.trim(),
+      Lieferant4:        $id('f-Lieferant4').value.trim(),
       GeschaetzterPreis: $id('f-GeschaetzterPreis').value ? parseFloat($id('f-GeschaetzterPreis').value) : null,
       Kostenstelle:      $id('f-Kostenstelle').value.trim(),
     };
@@ -705,10 +715,14 @@ function updatePreisHint() {
 }
 
 function genehmigungsweg(gesamt) {
-  if (gesamt < 250)   return `Geschätztes Volumen: ${fmtEuro(gesamt)} – kein Angebot nötig`;
-  if (gesamt < 750)   return `Geschätztes Volumen: ${fmtEuro(gesamt)} – mind. 2 Angebote (Einkauf)`;
-  if (gesamt < 10000) return `Geschätztes Volumen: ${fmtEuro(gesamt)} – Freigabe: Einkauf + Verwaltung`;
-  return `Geschätztes Volumen: ${fmtEuro(gesamt)} – Freigabe: Einkauf + Verwaltung + Geschäftsführung`;
+  let angebote, freigabe;
+  if      (gesamt <   250) { angebote = 'kein Angebot nötig';                         freigabe = 'Einkauf'; }
+  else if (gesamt <   750) { angebote = 'mind. 2 Angebote';                            freigabe = 'Einkauf'; }
+  else if (gesamt <  1500) { angebote = 'mind. 2 Angebote';                            freigabe = 'Einkauf + Verwaltung'; }
+  else if (gesamt < 10000) { angebote = 'mind. 3 Angebote';                            freigabe = 'Einkauf + Verwaltung'; }
+  else if (gesamt < 50000) { angebote = 'mind. 3 Angebote';                            freigabe = 'Einkauf + Verwaltung + GF'; }
+  else                     { angebote = 'Europ. Ausschreibung (mind. 3 Angebote)';     freigabe = 'Einkauf + Verwaltung + GF'; }
+  return `Volumen: ${fmtEuro(gesamt)} · ${angebote} · Freigabe: ${freigabe}`;
 }
 
 function buildReview() {
@@ -731,9 +745,12 @@ function buildReview() {
         ['Benötigt bis', d.Termin ? fmtDate(d.Termin) : null],
       ])}
       ${reviewSection('Beschaffungsdetails', [
-        ['Beschaffungslogik', d.Beschaffungslogik],
+        ['Beschaffungsart', d.Beschaffungslogik],
         ['Artikelnummer', d.Artikelnummer],
-        ['Lieferant', d.Lieferant],
+        ['Lieferant 1', d.Lieferant],
+        ['Lieferant 2', d.Lieferant2],
+        ['Lieferant 3', d.Lieferant3],
+        ['Lieferant 4', d.Lieferant4],
         ['Gesch. Preis (netto)', d.GeschaetzterPreis ? fmtEuro(d.GeschaetzterPreis) : null],
         ['Kostenstelle', d.Kostenstelle],
       ])}
@@ -943,27 +960,42 @@ function itemCard(item) {
 }
 
 function compactRow(item) {
-  const title  = esc(getField(item,'Title') || '–');
-  const status = getField(item,'Status') || '';
-  const wg     = getField(item, resolvedFields['Warengruppe'] || 'Warengruppe') || '';
-  const preis  = parseFloat(getField(item, resolvedFields['GeschaetzterPreis'] || 'GeschaetzterPreis')) || null;
-  const menge  = getField(item, resolvedFields['Menge'] || 'Menge') || '';
-  const me     = getField(item, resolvedFields['Mengeneinheit'] || 'Mengeneinheit') || '';
+  const title   = getField(item,'Title') || '–';
+  const status  = getField(item,'Status') || '';
+  const prio    = getField(item, resolvedFields['Prioritaet'] || 'Prioritaet') || '';
   const created = item.createdDateTime ? fmtRelative(item.createdDateTime) : '';
-  const appr   = getApprovalSummary(item);
+  const creator = item.createdBy?.user?.displayName || item.createdBy?.user?.email || '';
+  const appr    = getApprovalSummary(item);
+
+  // All FORM_FIELDS values
+  const fieldRows = FORM_FIELDS.filter(fd => fd.key !== 'Title').map(fd => {
+    const v = getField(item, resolvedFields[fd.key] || fd.key);
+    if (!v && v !== 0) return '';
+    let display = String(v);
+    if (fd.key === 'GeschaetzterPreis') display = fmtEuro(v);
+    else if (fd.key === 'Termin')       display = fmtDate(v);
+    return `<div class="cr-field"><span class="cr-fl">${esc(fd.label)}:</span><span class="cr-fv">${esc(display)}</span></div>`;
+  }).filter(Boolean).join('');
+
+  // EINKAUF_FIELDS values
+  const einkaufRows = EINKAUF_FIELDS.map(fd => {
+    const v = getField(item, resolvedFields[fd.key] || fd.key);
+    if (!v && v !== 0) return '';
+    let display = String(v);
+    if (fd.key === 'TatsaechlicherPreis') display = fmtEuro(v);
+    else if (fd.key === 'Lieferdatum')    display = fmtDate(v);
+    return `<div class="cr-field cr-einkauf"><span class="cr-fl">${esc(fd.label)}:</span><span class="cr-fv">${esc(display)}</span></div>`;
+  }).filter(Boolean).join('');
+
   return `
     <div class="compact-row" onclick="navigate('detail','${item.id}')">
       <div class="cr-top">
-        <span class="compact-title">${title}</span>
-        ${statusBadge(status)}
+        <span class="compact-title">${esc(title)}</span>
+        <div class="cr-badges">${statusBadge(status)}${prioTag(prio)}</div>
       </div>
-      <div class="cr-mid">
-        ${wg ? `<span class="ic-tag ic-wg">${esc(wg)}</span>` : ''}
-        ${menge && me ? `<span class="ic-tag">⚖ ${esc(menge)} ${esc(me)}</span>` : ''}
-        ${preis ? `<span class="ic-tag">${fmtEuro(preis)}</span>` : ''}
-        ${appr}
-      </div>
-      <div class="compact-meta">ID ${item.id} · ${created}</div>
+      <div class="cr-fields">${fieldRows}</div>
+      ${einkaufRows ? `<div class="cr-fields cr-einkauf-block">${einkaufRows}</div>` : ''}
+      ${appr || creator ? `<div class="cr-footer">${appr}<span class="compact-meta">👤 ${esc(creator)} · ID ${item.id} · ${created}</span></div>` : ''}
     </div>`;
 }
 
