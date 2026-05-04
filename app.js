@@ -502,7 +502,7 @@ async function saveOrderData(itemId) {
     if (col) patch[col] = val;
   };
   add('Bestellnummer', orderNr);
-  add('Lieferdatum', delivery || null);
+  if (delivery) add('Lieferdatum', toSpDate(delivery));
   if (price) add('TatsaechlicherPreis', parseFloat(price));
 
   if (!Object.keys(patch).length) { closeModal(); return; }
@@ -671,6 +671,14 @@ function reviewSection(title, rows) {
 
 // ── SUBMIT ───────────────────────────────────────────────────────────────────
 const NUMBER_FIELDS = new Set(['GeschaetzterPreis','Menge','Mindestlagermenge','TatsaechlicherPreis']);
+const DATE_FIELDS   = new Set(['Termin','Lieferdatum']);
+
+// SP Graph requires full ISO 8601: "2026-05-10T00:00:00Z"
+// <input type="date"> yields "2026-05-10" → append time component
+function toSpDate(val) {
+  if (!val) return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(val) ? val + 'T00:00:00Z' : val;
+}
 
 function buildFields(data, fieldDefs) {
   const fields = {};
@@ -681,6 +689,9 @@ function buildFields(data, fieldDefs) {
     if (NUMBER_FIELDS.has(fd.key)) {
       const n = parseFloat(val);
       if (!isNaN(n)) fields[spCol] = n;
+    } else if (DATE_FIELDS.has(fd.key)) {
+      const d = toSpDate(val);
+      if (d) fields[spCol] = d;
     } else {
       fields[spCol] = val;
     }
@@ -688,27 +699,48 @@ function buildFields(data, fieldDefs) {
   return fields;
 }
 
-// Retry POST removing one "not recognized" field per attempt until success.
-// Keeps resolvedFields in sync so future calls skip the bad columns.
+// Retry POST removing offending fields until SP accepts the payload.
+// Handles both 400 "not recognized" and 500 "generalException" (bad value/type).
 async function postRetry(path, fields) {
   const skipped = [];
-  for (let i = 0; i < FORM_FIELDS.length + 5; i++) {
+  // Optional fields that can be dropped if they trigger a 500
+  const optionalKeys = Object.entries(resolvedFields)
+    .filter(([k]) => !FORM_FIELDS.find(f => f.key === k && f.required))
+    .map(([, v]) => v)
+    .filter(Boolean);
+
+  for (let i = 0; i < FORM_FIELDS.length + 10; i++) {
     try {
       await gPost(path, { fields });
       return skipped;
     } catch(e) {
-      const m = e.message.match(/Field '([^']+)' (?:is not recognized|does not exist)/i);
-      if (!m) throw e;
-      const bad = m[1];
-      skipped.push(bad);
-      delete fields[bad];
-      // Nullify in resolvedFields so saveOrderData & future submits skip it too
-      for (const [k, v] of Object.entries(resolvedFields)) {
-        if (v === bad) resolvedFields[k] = null;
+      // 400: SP names the bad field explicitly
+      const m400 = e.message.match(/Field '([^']+)' (?:is not recognized|does not exist)/i);
+      if (m400) {
+        const bad = m400[1];
+        skipped.push(bad);
+        delete fields[bad];
+        for (const [k, v] of Object.entries(resolvedFields)) {
+          if (v === bad) resolvedFields[k] = null;
+        }
+        continue;
       }
+      // 500: no field named → drop next optional field and retry
+      if (e.message.includes('500') || e.message.includes('generalException')) {
+        // Find first optional field still in payload
+        const dropKey = optionalKeys.find(k => k && fields[k] !== undefined);
+        if (dropKey) {
+          console.warn('[postRetry] 500 – dropping field:', dropKey, 'value:', fields[dropKey]);
+          skipped.push(dropKey + '(500)');
+          delete fields[dropKey];
+          optionalKeys.splice(optionalKeys.indexOf(dropKey), 1);
+          continue;
+        }
+      }
+      throw e; // unhandled error
     }
   }
-  throw new Error('Zu viele nicht erkannte Felder.');
+  throw new Error('Einreichen fehlgeschlagen – zu viele problematische Felder.');
 }
 
 async function submitRequest() {
