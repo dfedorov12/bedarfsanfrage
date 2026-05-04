@@ -1,385 +1,340 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bedarfsanfragen – DIHAG</title>
-  <link rel="stylesheet" href="style.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate"/>
+  <title>DIHAG · Bedarfsanfragen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
+  <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
 
-<!-- Sidebar -->
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-logo">
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#1a56db"/><text x="5" y="20" font-size="14" font-weight="700" fill="white" font-family="Inter">D</text></svg>
-    <span>DIHAG</span>
+<!-- ── BOOT ─────────────────────────────────────────────────────── -->
+<div id="boot">
+  <div class="boot-logo">
+    <svg width="40" height="40" viewBox="0 0 40 40"><rect width="40" height="40" rx="10" fill="#1a56db"/><text x="7" y="28" font-size="22" font-weight="700" fill="white" font-family="Inter">D</text></svg>
   </div>
-  <nav class="sidebar-nav">
-    <a href="#" class="nav-item active" data-view="dashboard">
-      <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 4a2 2 0 012-2h4a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2V4zm10 0a2 2 0 012-2h4a2 2 0 012 2v4a2 2 0 01-2 2h-4a2 2 0 01-2-2V4zM2 14a2 2 0 012-2h4a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4zm10 0a2 2 0 012-2h4a2 2 0 012 2v4a2 2 0 01-2 2h-4a2 2 0 01-2-2v-4z"/></svg>
-      Dashboard
-    </a>
-    <a href="#" class="nav-item" data-view="new">
-      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
-      Neue Anfrage
-    </a>
-    <a href="#" class="nav-item" data-view="mine">
-      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
-      Meine Anfragen
-    </a>
-    <a href="#" class="nav-item" data-view="approvals">
-      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-      Zur Genehmigung
-      <span class="badge" id="approval-badge"></span>
-    </a>
-    <a href="#" class="nav-item" data-view="all">
-      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
-      Alle Anfragen
-    </a>
-  </nav>
-  <div class="sidebar-user">
-    <div class="user-avatar" id="user-avatar-sidebar">DF</div>
-    <div class="user-info">
-      <div class="user-name" id="user-name-sidebar">Denis Fedorov</div>
-      <div class="user-role" id="user-role-sidebar">Einkauf</div>
-    </div>
-  </div>
-</aside>
+  <div class="boot-title">DIHAG Bedarfsanfragen</div>
+  <div class="boot-sub" id="boot-sub">Anmeldung läuft…</div>
+  <div class="boot-spinner" id="boot-spinner"></div>
+  <div class="boot-err" id="boot-err"></div>
+  <button class="boot-btn" id="boot-btn" onclick="doLogin()" style="display:none">Anmelden</button>
+</div>
 
-<!-- Main -->
-<main class="main">
-  <!-- Topbar -->
-  <header class="topbar">
-    <div class="topbar-left">
-      <button class="menu-toggle" id="menu-toggle" title="Menü">
-        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+<!-- ── APP ──────────────────────────────────────────────────────── -->
+<div id="app" style="display:none">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <svg width="26" height="26" viewBox="0 0 26 26"><rect width="26" height="26" rx="6" fill="#1a56db"/><text x="5" y="19" font-size="13" font-weight="700" fill="white" font-family="Inter">D</text></svg>
+      <span>DIHAG</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item" data-view="dashboard">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 4a2 2 0 012-2h4a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2V4zm10 0a2 2 0 012-2h4a2 2 0 012 2v4a2 2 0 01-2 2h-4a2 2 0 01-2-2V4zM2 14a2 2 0 012-2h4a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4zm10 0a2 2 0 012-2h4a2 2 0 012 2v4a2 2 0 01-2 2h-4a2 2 0 01-2-2v-4z"/></svg>
+        Dashboard
+      </a>
+      <a href="#" class="nav-item" data-view="new">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+        Neue Anfrage
+      </a>
+      <a href="#" class="nav-item" data-view="mine">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
+        Meine Anfragen
+      </a>
+      <a href="#" class="nav-item" data-view="all">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+        Alle Anfragen
+      </a>
+      <div class="nav-sep"></div>
+      <a href="https://dihag.sharepoint.com/sites/gruppe_shb/Lists/Bedarfsanfrage/AllItems.aspx" target="_blank" class="nav-item nav-ext">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z"/><path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"/></svg>
+        SP-Liste öffnen
+      </a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="hdr-av">?</div>
+      <div class="user-info">
+        <div class="user-name" id="hdr-name">–</div>
+        <div class="user-sub" id="hdr-mail">–</div>
+      </div>
+      <button class="logout-btn" title="Abmelden" onclick="doLogout()">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/></svg>
       </button>
-      <h1 class="topbar-title" id="page-title">Dashboard</h1>
     </div>
-    <div class="topbar-right">
-      <div class="user-switcher">
-        <label>Rolle testen:</label>
-        <select id="role-switcher">
-          <option value="beschaffer">Beschaffer</option>
-          <option value="einkauf" selected>Einkauf / Lead Buyer</option>
-          <option value="verwaltung">Verwaltung</option>
-          <option value="controlling">Controlling</option>
-          <option value="geschaeftsfuehrung">Geschäftsführung</option>
-        </select>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle" id="menu-toggle">
+          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+        </button>
+        <h1 class="topbar-title" id="page-title">Dashboard</h1>
       </div>
-    </div>
-  </header>
-
-  <!-- Views -->
-  <div class="content" id="content">
-
-    <!-- DASHBOARD VIEW -->
-    <div id="view-dashboard" class="view active">
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon blue"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5z" clip-rule="evenodd"/></svg></div>
-          <div class="stat-body">
-            <div class="stat-value" id="stat-total">0</div>
-            <div class="stat-label">Anfragen gesamt</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon orange"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg></div>
-          <div class="stat-body">
-            <div class="stat-value" id="stat-pending">0</div>
-            <div class="stat-label">Ausstehend</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon green"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></div>
-          <div class="stat-body">
-            <div class="stat-value" id="stat-approved">0</div>
-            <div class="stat-label">Freigegeben</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon purple"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"/><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clip-rule="evenodd"/></svg></div>
-          <div class="stat-body">
-            <div class="stat-value" id="stat-volume">0 €</div>
-            <div class="stat-label">Bestellvolumen</div>
-          </div>
-        </div>
+      <div class="topbar-right">
+        <button class="btn btn-sm btn-ghost" onclick="loadItems(true)" title="Aktualisieren" id="btn-reload">
+          <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+          Aktualisieren
+        </button>
       </div>
+    </header>
 
-      <div class="two-col">
-        <div class="card">
-          <div class="card-header">
-            <h2>Letzte Anfragen</h2>
-            <button class="btn btn-sm btn-primary" data-view="new">+ Neu</button>
-          </div>
-          <div id="dashboard-list" class="request-list"></div>
-        </div>
-        <div class="card">
-          <div class="card-header"><h2>Genehmigungen ausstehend</h2></div>
-          <div id="dashboard-approvals" class="request-list"></div>
-        </div>
-      </div>
-    </div>
+    <!-- col-warning: SP columns that don't exist yet -->
+    <div id="col-warning" class="col-warning" style="display:none"></div>
 
-    <!-- NEW REQUEST VIEW -->
-    <div id="view-new" class="view">
-      <div class="wizard-wrap">
-        <div class="wizard-header">
-          <div class="wizard-steps">
-            <div class="wstep active" data-step="1"><span>1</span>Grunddaten</div>
-            <div class="wstep" data-step="2"><span>2</span>Material</div>
-            <div class="wstep" data-step="3"><span>3</span>Kosten</div>
-            <div class="wstep" data-step="4"><span>4</span>Überprüfung</div>
-          </div>
-        </div>
+    <div class="content" id="content">
 
-        <!-- Step 1 -->
-        <div class="wizard-body" id="step-1">
-          <h2>Grunddaten der Anfrage</h2>
-          <p class="step-desc">Beschreiben Sie Ihren Bedarf möglichst genau.</p>
-          <div class="form-grid">
-            <div class="form-group full">
-              <label>Bezeichnung des Bedarfs <span class="req">*</span></label>
-              <input type="text" id="f-bezeichnung" placeholder="z. B. Bürostühle ergonomisch, Schrauben M8x50 …" />
-            </div>
-            <div class="form-group full">
-              <label>Beschreibung / Begründung</label>
-              <textarea id="f-beschreibung" rows="3" placeholder="Warum wird dieser Bedarf benötigt?"></textarea>
-            </div>
-            <div class="form-group">
-              <label>Warengruppe <span class="req">*</span></label>
-              <select id="f-warengruppe">
-                <option value="">– bitte wählen –</option>
-                <option>Bürobedarf & Büroausstattung</option>
-                <option>IT & Elektronik</option>
-                <option>Werkzeug & Maschinen</option>
-                <option>Rohstoffe & Materialien</option>
-                <option>Dienstleistungen</option>
-                <option>Fahrzeuge & Transport</option>
-                <option>Gebäude & Infrastruktur</option>
-                <option>Schutzausrüstung (PSA)</option>
-                <option>Sonstiges</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Kostenstelle</label>
-              <input type="text" id="f-kostenstelle" placeholder="z. B. 4200" />
-            </div>
-            <div class="form-group">
-              <label>Menge <span class="req">*</span></label>
-              <input type="number" id="f-menge" min="0.01" step="0.01" placeholder="1" />
-            </div>
-            <div class="form-group">
-              <label>Mengeneinheit <span class="req">*</span></label>
-              <select id="f-einheit">
-                <option>Stück</option>
-                <option>Stunden</option>
-                <option>Liter</option>
-                <option>kg</option>
-                <option>m</option>
-                <option>m²</option>
-                <option>Paket</option>
-                <option>Karton</option>
-                <option>Palette</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Benötigt bis</label>
-              <input type="date" id="f-termin" />
-            </div>
-            <div class="form-group">
-              <label>Priorität</label>
-              <select id="f-prioritaet">
-                <option value="normal">Normal</option>
-                <option value="hoch">Hoch</option>
-                <option value="dringend">Dringend</option>
-              </select>
-            </div>
-          </div>
-          <div class="wizard-footer">
-            <span></span>
-            <button class="btn btn-primary" onclick="wizardNext(1)">Weiter →</button>
-          </div>
+      <!-- DASHBOARD -->
+      <div id="view-dashboard" class="view">
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-icon blue"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5z" clip-rule="evenodd"/></svg></div><div class="stat-body"><div class="stat-value" id="st-total">–</div><div class="stat-label">Anfragen gesamt</div></div></div>
+          <div class="stat-card"><div class="stat-icon orange"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg></div><div class="stat-body"><div class="stat-value" id="st-open">–</div><div class="stat-label">Offen / In Prüfung</div></div></div>
+          <div class="stat-card"><div class="stat-icon green"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></div><div class="stat-body"><div class="stat-value" id="st-approved">–</div><div class="stat-label">Freigegeben</div></div></div>
+          <div class="stat-card"><div class="stat-icon purple"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"/><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clip-rule="evenodd"/></svg></div><div class="stat-body"><div class="stat-value" id="st-volume">–</div><div class="stat-label">Geschätztes Volumen</div></div></div>
         </div>
-
-        <!-- Step 2 -->
-        <div class="wizard-body hidden" id="step-2">
-          <h2>Materialinformationen</h2>
-          <p class="step-desc">Handelt es sich um ein bestehendes oder neues Material?</p>
-          <div class="form-grid">
-            <div class="form-group full">
-              <label>Materialtyp <span class="req">*</span></label>
-              <div class="radio-cards">
-                <label class="radio-card">
-                  <input type="radio" name="materialtyp" value="bestandsmaterial" checked />
-                  <div class="rc-icon">📦</div>
-                  <div class="rc-title">Bestandsmaterial</div>
-                  <div class="rc-desc">Material existiert bereits in der Datenbank (Stammdaten vorhanden)</div>
-                </label>
-                <label class="radio-card">
-                  <input type="radio" name="materialtyp" value="neues_material" />
-                  <div class="rc-icon">🆕</div>
-                  <div class="rc-title">Neues Material</div>
-                  <div class="rc-desc">Material muss neu angelegt werden (keine Stammdaten)</div>
-                </label>
-                <label class="radio-card">
-                  <input type="radio" name="materialtyp" value="dienstleistung" />
-                  <div class="rc-icon">🔧</div>
-                  <div class="rc-title">Dienstleistung</div>
-                  <div class="rc-desc">Externe Dienstleistung oder Serviceleistung</div>
-                </label>
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Artikelnummer / Materialnummer</label>
-              <input type="text" id="f-artikelnummer" placeholder="z. B. M-4711 oder SAP-Nr." />
-            </div>
-            <div class="form-group">
-              <label>Bevorzugter Lieferant</label>
-              <input type="text" id="f-lieferant" placeholder="Name oder Lieferanten-Nr." />
-            </div>
-            <div class="form-group full">
-              <label>Technische Spezifikationen / Besonderheiten</label>
-              <textarea id="f-spezifikation" rows="3" placeholder="Maße, Normen, besondere Anforderungen …"></textarea>
-            </div>
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header"><h2>Letzte Anfragen</h2><button class="btn btn-sm btn-primary" data-view="new">+ Neue Anfrage</button></div>
+            <div id="dash-recent"></div>
           </div>
-          <div class="wizard-footer">
-            <button class="btn btn-ghost" onclick="wizardBack(2)">← Zurück</button>
-            <button class="btn btn-primary" onclick="wizardNext(2)">Weiter →</button>
-          </div>
-        </div>
-
-        <!-- Step 3 -->
-        <div class="wizard-body hidden" id="step-3">
-          <h2>Kostenschätzung & Budget</h2>
-          <p class="step-desc">Die Kostenhöhe bestimmt den Genehmigungsweg.</p>
-          <div class="form-grid">
-            <div class="form-group">
-              <label>Geschätzter Einzelpreis (netto) <span class="req">*</span></label>
-              <div class="input-with-unit">
-                <input type="number" id="f-preis" min="0" step="0.01" placeholder="0,00" oninput="updateGesamtpreis()" />
-                <span class="unit">€</span>
-              </div>
+          <div class="card">
+            <div class="card-header"><h2>Genehmigungsprozess</h2></div>
+            <div class="pa-info">
+              <div class="pa-step"><div class="pa-num">1</div><div><strong>BANF einreichen</strong><br><small>Beschaffer füllt Formular aus → SharePoint-Liste</small></div></div>
+              <div class="pa-arrow">↓</div>
+              <div class="pa-step"><div class="pa-num pa-auto">⚡</div><div><strong>Power Automate</strong><br><small>Automatischer Trigger → Genehmigung per E-Mail / Teams</small></div></div>
+              <div class="pa-arrow">↓</div>
+              <div class="pa-step"><div class="pa-num">2</div><div><strong>Einkauf prüft</strong><br><small>Angebote einholen, Lieferant wählen, Freigabe erteilen</small></div></div>
+              <div class="pa-arrow">↓</div>
+              <div class="pa-step"><div class="pa-num">3</div><div><strong>Verwaltung / GF</strong><br><small>Bei Bestellvolumen &gt; 750 € bzw. &gt; 10.000 €</small></div></div>
+              <div class="pa-arrow">↓</div>
+              <div class="pa-step pa-final"><div class="pa-num pa-ok">✓</div><div><strong>Bestellung ausgelöst</strong><br><small>Einkauf trägt Bestellnummer in SharePoint ein</small></div></div>
             </div>
-            <div class="form-group">
-              <label>Geschätzter Gesamtpreis (netto)</label>
-              <div class="input-with-unit">
-                <input type="number" id="f-gesamt" readonly placeholder="0,00" />
-                <span class="unit">€</span>
-              </div>
-            </div>
-            <div class="form-group full">
-              <div id="approval-route-info" class="info-box hidden"></div>
-            </div>
-            <div class="form-group full">
-              <label>Budget vorhanden?</label>
-              <div class="toggle-group">
-                <label class="toggle-opt">
-                  <input type="radio" name="budget" value="ja" checked /> Ja, Budget ist vorhanden
-                </label>
-                <label class="toggle-opt">
-                  <input type="radio" name="budget" value="nein" /> Nein, Budgetgenehmigung nötig
-                </label>
-                <label class="toggle-opt">
-                  <input type="radio" name="budget" value="unbekannt" /> Unbekannt
-                </label>
-              </div>
-            </div>
-            <div class="form-group full">
-              <label>Bemerkungen zur Kostenplanung</label>
-              <textarea id="f-kostennotiz" rows="2" placeholder="z. B. Projektbudget Pos. 12, Investitionsplan 2025 …"></textarea>
-            </div>
-          </div>
-          <div class="wizard-footer">
-            <button class="btn btn-ghost" onclick="wizardBack(3)">← Zurück</button>
-            <button class="btn btn-primary" onclick="wizardNext(3)">Weiter →</button>
-          </div>
-        </div>
-
-        <!-- Step 4 -->
-        <div class="wizard-body hidden" id="step-4">
-          <h2>Überprüfung & Einreichen</h2>
-          <p class="step-desc">Bitte überprüfen Sie alle Angaben vor dem Einreichen.</p>
-          <div id="review-content"></div>
-          <div class="wizard-footer">
-            <button class="btn btn-ghost" onclick="wizardBack(4)">← Zurück</button>
-            <button class="btn btn-success" onclick="submitRequest()">✓ Anfrage einreichen</button>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- MINE VIEW -->
-    <div id="view-mine" class="view">
-      <div class="view-toolbar">
-        <div class="search-box">
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
-          <input type="text" id="search-mine" placeholder="Suchen …" oninput="filterList('mine')" />
+      <!-- NEW REQUEST (WIZARD) -->
+      <div id="view-new" class="view">
+        <div class="wizard-wrap">
+          <div class="wizard-header">
+            <div class="wizard-steps" id="wizard-steps">
+              <div class="wstep active" data-step="1"><span>1</span>Bedarf</div>
+              <div class="wstep" data-step="2"><span>2</span>Mengengaben</div>
+              <div class="wstep" data-step="3"><span>3</span>Beschaffung</div>
+              <div class="wstep" data-step="4"><span>4</span>Überprüfung</div>
+            </div>
+          </div>
+
+          <!-- Step 1 -->
+          <div class="wizard-body" id="wstep-1">
+            <h2>Bedarf beschreiben</h2>
+            <p class="step-hint">Was wird benötigt und warum?</p>
+            <div class="form-grid">
+              <div class="form-group full">
+                <label>Bezeichnung / Titel <span class="req">*</span></label>
+                <input type="text" id="f-Title" placeholder="z. B. Bürostühle ergonomisch, Schrauben M8 × 50 …"/>
+                <div class="field-hint" id="hint-Title"></div>
+              </div>
+              <div class="form-group full">
+                <label>Beschreibung / Begründung</label>
+                <textarea id="f-Beschreibung" rows="3" placeholder="Warum wird dieser Bedarf benötigt? Welche Anforderungen gibt es?"></textarea>
+                <div class="field-hint" id="hint-Beschreibung"></div>
+              </div>
+              <div class="form-group">
+                <label>Warengruppe <span class="req">*</span></label>
+                <select id="f-Warengruppe">
+                  <option value="">– bitte wählen –</option>
+                  <option>Bürobedarf &amp; Büroausstattung</option>
+                  <option>IT &amp; Elektronik</option>
+                  <option>Werkzeug &amp; Maschinen</option>
+                  <option>Rohstoffe &amp; Materialien</option>
+                  <option>Dienstleistungen</option>
+                  <option>Fahrzeuge &amp; Transport</option>
+                  <option>Gebäude &amp; Infrastruktur</option>
+                  <option>Schutzausrüstung (PSA)</option>
+                  <option>Sonstiges</option>
+                </select>
+                <div class="field-hint" id="hint-Warengruppe"></div>
+              </div>
+              <div class="form-group">
+                <label>Priorität</label>
+                <select id="f-Prioritaet">
+                  <option value="Normal">Normal</option>
+                  <option value="Hoch">Hoch</option>
+                  <option value="Dringend">Dringend</option>
+                </select>
+                <div class="field-hint" id="hint-Prioritaet"></div>
+              </div>
+            </div>
+            <div class="wizard-footer">
+              <span></span>
+              <button class="btn btn-primary" onclick="wNext(1)">Weiter →</button>
+            </div>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="wizard-body hidden" id="wstep-2">
+            <h2>Mengengaben</h2>
+            <p class="step-hint">Wie viel wird benötigt und bis wann?</p>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Menge <span class="req">*</span></label>
+                <input type="number" id="f-Menge" min="0.001" step="any" placeholder="1"/>
+                <div class="field-hint" id="hint-Menge"></div>
+              </div>
+              <div class="form-group">
+                <label>Mengeneinheit <span class="req">*</span></label>
+                <select id="f-Mengeneinheit">
+                  <option value="">– bitte wählen –</option>
+                  <option>Stück</option><option>kg</option><option>Liter</option>
+                  <option>m</option><option>m²</option><option>Paket</option>
+                  <option>Karton</option><option>Palette</option><option>Stunden</option>
+                </select>
+                <div class="field-hint" id="hint-Mengeneinheit"></div>
+              </div>
+              <div class="form-group">
+                <label>Mindestlagermenge
+                  <span class="tooltip-icon" title="Für bestandsgeführte Materialien: die Menge, bei der automatisch nachbestellt werden soll.">?</span>
+                </label>
+                <input type="number" id="f-Mindestlagermenge" min="0" step="any" placeholder="optional"/>
+                <div class="field-hint" id="hint-Mindestlagermenge"></div>
+              </div>
+              <div class="form-group">
+                <label>Benötigt bis (Termin)</label>
+                <input type="date" id="f-Termin"/>
+                <div class="field-hint" id="hint-Termin"></div>
+              </div>
+            </div>
+            <div class="wizard-footer">
+              <button class="btn btn-ghost" onclick="wBack(2)">← Zurück</button>
+              <button class="btn btn-primary" onclick="wNext(2)">Weiter →</button>
+            </div>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="wizard-body hidden" id="wstep-3">
+            <h2>Beschaffungsdetails</h2>
+            <p class="step-hint">Art des Materials, Lieferant und Kostenstelle.</p>
+            <div class="form-grid">
+              <div class="form-group full">
+                <label>Beschaffungslogik <span class="req">*</span>
+                  <span class="tooltip-icon" title="Bestandsmaterial: Artikelnummer vorhanden (SAP-Stammdaten). Neues Material: keine Stammdaten, muss angelegt werden. Dienstleistung: externe Serviceleistung.">?</span>
+                </label>
+                <div class="radio-cards" id="beschaffungslogik-cards">
+                  <label class="radio-card">
+                    <input type="radio" name="Beschaffungslogik" value="Bestandsmaterial (bestandsgeführt)" checked/>
+                    <div class="rc-icon">📦</div>
+                    <div class="rc-title">Bestandsmaterial</div>
+                    <div class="rc-desc">Bestandsgeführt, Stammdaten (Artikelnr.) vorhanden – RQU-Daten nutzen</div>
+                  </label>
+                  <label class="radio-card">
+                    <input type="radio" name="Beschaffungslogik" value="Neues Material (nicht-bestandsgeführt)"/>
+                    <div class="rc-icon">🆕</div>
+                    <div class="rc-title">Neues Material</div>
+                    <div class="rc-desc">Nicht-bestandsgeführt, Stammdaten müssen erst angelegt werden</div>
+                  </label>
+                  <label class="radio-card">
+                    <input type="radio" name="Beschaffungslogik" value="Dienstleistung"/>
+                    <div class="rc-icon">🔧</div>
+                    <div class="rc-title">Dienstleistung</div>
+                    <div class="rc-desc">Externe Dienstleistung (direkt oder indirekt)</div>
+                  </label>
+                </div>
+                <div class="field-hint" id="hint-Beschaffungslogik"></div>
+              </div>
+              <div class="form-group">
+                <label>Nummernangaben / Artikelnummer
+                  <span class="tooltip-icon" title="Materialnummer aus SAP/RQU für bestandsgeführte Artikel. Bei neuen Materialien: vorläufige Bezeichnung oder Lieferanten-Artikelnummer.">?</span>
+                </label>
+                <input type="text" id="f-Artikelnummer" placeholder="z. B. M-4711 oder SAP-Nr."/>
+                <div class="field-hint" id="hint-Artikelnummer"></div>
+              </div>
+              <div class="form-group">
+                <label>Bevorzugter Lieferant (Lieferanten-Logik)</label>
+                <input type="text" id="f-Lieferant" placeholder="Firmenname oder Lieferanten-Nr."/>
+                <div class="field-hint" id="hint-Lieferant"></div>
+              </div>
+              <div class="form-group">
+                <label>Geschätzter Preis netto (€)</label>
+                <input type="number" id="f-GeschaetzterPreis" min="0" step="0.01" placeholder="0,00" oninput="updatePreisHint()"/>
+                <div class="field-hint" id="hint-GeschaetzterPreis"></div>
+                <div id="preis-route-hint" class="info-box info" style="display:none;margin-top:6px"></div>
+              </div>
+              <div class="form-group">
+                <label>Kostenstelle</label>
+                <input type="text" id="f-Kostenstelle" placeholder="z. B. 4200"/>
+                <div class="field-hint" id="hint-Kostenstelle"></div>
+              </div>
+            </div>
+            <div class="wizard-footer">
+              <button class="btn btn-ghost" onclick="wBack(3)">← Zurück</button>
+              <button class="btn btn-primary" onclick="wNext(3)">Weiter →</button>
+            </div>
+          </div>
+
+          <!-- Step 4: Review -->
+          <div class="wizard-body hidden" id="wstep-4">
+            <h2>Überprüfung &amp; Einreichen</h2>
+            <p class="step-hint">Bitte prüfen Sie alle Angaben. Nach dem Einreichen wird <strong>Power Automate</strong> automatisch den Genehmigungsprozess starten.</p>
+            <div id="review-content"></div>
+            <div id="missing-cols-warn" class="info-box warn" style="display:none;margin-top:14px"></div>
+            <div class="wizard-footer">
+              <button class="btn btn-ghost" onclick="wBack(4)">← Zurück</button>
+              <button class="btn btn-success" id="btn-submit" onclick="submitRequest()">✓ Anfrage einreichen</button>
+            </div>
+          </div>
         </div>
-        <div class="filter-group">
-          <select id="filter-mine-status" onchange="filterList('mine')">
+      </div>
+
+      <!-- MINE / ALL (shared template, rendered by JS) -->
+      <div id="view-mine" class="view">
+        <div class="view-toolbar">
+          <div class="search-box">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+            <input type="text" id="search-mine" placeholder="Suchen …" oninput="filterView('mine')"/>
+          </div>
+          <select id="filter-mine-status" onchange="filterView('mine')">
             <option value="">Alle Status</option>
-            <option value="entwurf">Entwurf</option>
-            <option value="eingereicht">Eingereicht</option>
-            <option value="in_pruefung">In Prüfung</option>
-            <option value="freigegeben">Freigegeben</option>
-            <option value="abgelehnt">Abgelehnt</option>
-            <option value="bestellt">Bestellt</option>
           </select>
         </div>
+        <div id="list-mine" class="item-cards"></div>
       </div>
-      <div id="list-mine" class="request-cards"></div>
-    </div>
 
-    <!-- APPROVALS VIEW -->
-    <div id="view-approvals" class="view">
-      <div class="view-toolbar">
-        <p class="view-hint">Anfragen, die Ihre Genehmigung erfordern:</p>
-      </div>
-      <div id="list-approvals" class="request-cards"></div>
-    </div>
-
-    <!-- ALL VIEW -->
-    <div id="view-all" class="view">
-      <div class="view-toolbar">
-        <div class="search-box">
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
-          <input type="text" id="search-all" placeholder="Suchen …" oninput="filterList('all')" />
-        </div>
-        <div class="filter-group">
-          <select id="filter-all-status" onchange="filterList('all')">
+      <div id="view-all" class="view">
+        <div class="view-toolbar">
+          <div class="search-box">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+            <input type="text" id="search-all" placeholder="Suchen …" oninput="filterView('all')"/>
+          </div>
+          <select id="filter-all-status" onchange="filterView('all')">
             <option value="">Alle Status</option>
-            <option value="entwurf">Entwurf</option>
-            <option value="eingereicht">Eingereicht</option>
-            <option value="in_pruefung">In Prüfung</option>
-            <option value="freigegeben">Freigegeben</option>
-            <option value="abgelehnt">Abgelehnt</option>
-            <option value="bestellt">Bestellt</option>
-          </select>
-          <select id="filter-all-wg" onchange="filterList('all')">
-            <option value="">Alle Warengruppen</option>
           </select>
         </div>
+        <div id="list-all" class="item-cards"></div>
       </div>
-      <div id="list-all" class="request-cards"></div>
-    </div>
 
-    <!-- DETAIL VIEW -->
-    <div id="view-detail" class="view">
-      <button class="btn btn-ghost back-btn" id="detail-back">← Zurück</button>
-      <div id="detail-content"></div>
-    </div>
+      <!-- DETAIL -->
+      <div id="view-detail" class="view">
+        <button class="btn btn-ghost back-btn" id="detail-back">← Zurück</button>
+        <div id="detail-content"></div>
+      </div>
 
-  </div><!-- /content -->
-</main>
+    </div><!-- /content -->
+  </main>
+</div><!-- /app -->
 
 <!-- Modal -->
 <div id="modal-overlay" class="modal-overlay hidden">
   <div class="modal">
     <div class="modal-header">
-      <h3 id="modal-title">Genehmigung</h3>
+      <h3 id="modal-title">Bestellnummer eintragen</h3>
       <button class="modal-close" onclick="closeModal()">×</button>
     </div>
     <div class="modal-body" id="modal-body"></div>
@@ -387,8 +342,8 @@
   </div>
 </div>
 
-<!-- Toast -->
-<div id="toast-container"></div>
+<!-- Toasts -->
+<div id="toast-c"></div>
 
 <script src="app.js"></script>
 </body>
