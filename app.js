@@ -195,15 +195,16 @@ async function discoverSP() {
 
 function resolveColName(fd) {
   if (fd.key === 'Title') return 'Title';
-  // Try exact internal name
-  if (colByKey[fd.key]) return fd.key;
-  // Try alternatives
+  // Only consider writable, non-sealed columns
+  const ok = c => c && !c.readOnly && !c.sealed;
+  if (ok(colByKey[fd.key])) return fd.key;
   for (const alt of (fd.alsoTry || [])) {
-    if (colByKey[alt]) return alt;
+    if (ok(colByKey[alt])) return alt;
   }
-  // Try case-insensitive match by displayName
+  // Case-insensitive display-name match (writable only)
   const labelNorm = (fd.label || '').toLowerCase().replace(/[^a-z0-9äöüß]/g,'');
   for (const [k, c] of Object.entries(colByKey)) {
+    if (!ok(c)) continue;
     const dn = (c.displayName||'').toLowerCase().replace(/[^a-z0-9äöüß]/g,'');
     if (dn === labelNorm) return k;
   }
@@ -489,31 +490,42 @@ function openOrderModal(itemId) {
 }
 
 async function saveOrderData(itemId) {
-  const orderNr = $id('m-ordernr').value.trim();
+  const orderNr  = $id('m-ordernr').value.trim();
   const delivery = $id('m-delivery').value;
-  const price   = $id('m-price').value;
+  const price    = $id('m-price').value;
 
+  // Build patch using resolved names; fall back to raw key if column was never resolved
   const patch = {};
-  if (resolvedFields['Bestellnummer']      && orderNr)  patch[resolvedFields['Bestellnummer']]      = orderNr;
-  if (resolvedFields['Lieferdatum']        && delivery) patch[resolvedFields['Lieferdatum']]        = delivery || null;
-  if (resolvedFields['TatsaechlicherPreis']&& price)    patch[resolvedFields['TatsaechlicherPreis']] = parseFloat(price);
-
-  // Fallback: use key directly if column not discovered but might exist
-  if (!resolvedFields['Bestellnummer']      && orderNr)  patch['Bestellnummer']      = orderNr;
-  if (!resolvedFields['Lieferdatum']        && delivery) patch['Lieferdatum']        = delivery || null;
-  if (!resolvedFields['TatsaechlicherPreis']&& price)    patch['TatsaechlicherPreis'] = parseFloat(price);
+  const add = (key, val) => {
+    if (!val) return;
+    const col = resolvedFields[key] || key;
+    if (col) patch[col] = val;
+  };
+  add('Bestellnummer', orderNr);
+  add('Lieferdatum', delivery || null);
+  if (price) add('TatsaechlicherPreis', parseFloat(price));
 
   if (!Object.keys(patch).length) { closeModal(); return; }
 
-  try {
-    await gPatch(`/sites/${siteId}/lists/${listId}/items/${itemId}/fields`, patch);
-    toast('Einkauf-Daten gespeichert ✓', 'success');
-    closeModal();
-    await loadItems(false);
-    renderDetail(itemId);
-  } catch(e) {
-    toast('Fehler: ' + e.message, 'error');
+  // Retry PATCH removing unrecognized fields
+  const skipped = [];
+  for (let i = 0; i < 10; i++) {
+    try {
+      await gPatch(`/sites/${siteId}/lists/${listId}/items/${itemId}/fields`, patch);
+      if (skipped.length) toast(`Gespeichert (übersprungen: ${skipped.join(', ')})`, 'info');
+      else toast('Einkauf-Daten gespeichert ✓', 'success');
+      closeModal();
+      await loadItems(false);
+      renderDetail(itemId);
+      return;
+    } catch(e) {
+      const m = e.message.match(/Field '([^']+)' (?:is not recognized|does not exist)/i);
+      if (!m) { toast('Fehler: ' + e.message, 'error'); return; }
+      skipped.push(m[1]);
+      delete patch[m[1]];
+    }
   }
+  toast('Fehler: Zu viele nicht erkannte Felder.', 'error');
 }
 
 // ── WIZARD ────────────────────────────────────────────────────────────────────
@@ -658,6 +670,47 @@ function reviewSection(title, rows) {
 }
 
 // ── SUBMIT ───────────────────────────────────────────────────────────────────
+const NUMBER_FIELDS = new Set(['GeschaetzterPreis','Menge','Mindestlagermenge','TatsaechlicherPreis']);
+
+function buildFields(data, fieldDefs) {
+  const fields = {};
+  for (const fd of fieldDefs) {
+    const spCol = resolvedFields[fd.key];
+    const val   = data[fd.key];
+    if (!spCol || val === null || val === undefined || val === '') continue;
+    if (NUMBER_FIELDS.has(fd.key)) {
+      const n = parseFloat(val);
+      if (!isNaN(n)) fields[spCol] = n;
+    } else {
+      fields[spCol] = val;
+    }
+  }
+  return fields;
+}
+
+// Retry POST removing one "not recognized" field per attempt until success.
+// Keeps resolvedFields in sync so future calls skip the bad columns.
+async function postRetry(path, fields) {
+  const skipped = [];
+  for (let i = 0; i < FORM_FIELDS.length + 5; i++) {
+    try {
+      await gPost(path, { fields });
+      return skipped;
+    } catch(e) {
+      const m = e.message.match(/Field '([^']+)' (?:is not recognized|does not exist)/i);
+      if (!m) throw e;
+      const bad = m[1];
+      skipped.push(bad);
+      delete fields[bad];
+      // Nullify in resolvedFields so saveOrderData & future submits skip it too
+      for (const [k, v] of Object.entries(resolvedFields)) {
+        if (v === bad) resolvedFields[k] = null;
+      }
+    }
+  }
+  throw new Error('Zu viele nicht erkannte Felder.');
+}
+
 async function submitRequest() {
   const btn = $id('btn-submit');
   btn.disabled = true;
@@ -665,32 +718,21 @@ async function submitRequest() {
 
   try {
     const d = { ...wizardData.step1, ...wizardData.step2, ...wizardData.step3 };
+    const fields = buildFields(d, FORM_FIELDS);
 
-    // Build fields object using ONLY columns that exist in SP
-    const fields = {};
-    for (const fd of FORM_FIELDS) {
-      const spCol = resolvedFields[fd.key];
-      const val   = d[fd.key];
-      if (!spCol || val === null || val === undefined || val === '') continue;
-      // Type coercion
-      if (fd.key === 'GeschaetzterPreis' || fd.key === 'Menge' || fd.key === 'Mindestlagermenge') {
-        const n = parseFloat(val);
-        if (!isNaN(n)) fields[spCol] = n;
-      } else {
-        fields[spCol] = val;
-      }
+    if (!fields['Title']) { toast('Titel fehlt.', 'error'); btn.disabled=false; btn.textContent='✓ Anfrage einreichen'; return; }
+
+    const skipped = await postRetry(`/sites/${siteId}/lists/${listId}/items`, fields);
+
+    if (skipped.length) {
+      toast(`Eingereicht. Nicht gespeichert (Spalte fehlt in SP-Liste): ${skipped.join(', ')}`, 'info');
+    } else {
+      toast('Anfrage eingereicht! Power Automate startet den Genehmigungsprozess.', 'success');
     }
-
-    // Title always required
-    if (!fields['Title']) { toast('Titel fehlt.','error'); return; }
-
-    await gPost(`/sites/${siteId}/lists/${listId}/items`, { fields });
-
-    toast('Anfrage eingereicht! Power Automate wird den Genehmigungsprozess starten.', 'success');
     await loadItems(false);
     navigate('mine');
   } catch(e) {
-    toast('Fehler beim Einreichen: ' + e.message, 'error');
+    toast('Fehler: ' + e.message, 'error');
     btn.disabled = false;
     btn.textContent = '✓ Anfrage einreichen';
   }
