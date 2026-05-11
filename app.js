@@ -2560,6 +2560,8 @@ function initTidAutocomplete(inputEl, getRelatedInput) {
     }
     const confirm = inputEl.closest('.tid-ac-wrap')?.querySelector('.tid-ac-confirm');
     if (confirm) confirm.textContent = '✓ ' + hit.b + ' · ' + hit.w;
+    // Also update wizard tid-match if present
+    if (typeof lookupTID === 'function' && $id('tid-match')) lookupTID(tid);
     hide();
   }
 
@@ -2640,6 +2642,9 @@ function lookupTID(val) {
 function initWizard() {
   wizardData = {};
   showStep(1);
+  // Artikelnummer autocomplete in wizard
+  const wArtNr = $id('f-Artikelnummer');
+  if (wArtNr) initTidAutocomplete(wArtNr, key => $id('f-' + key));
   // Show field availability hints
   for (const fd of FORM_FIELDS) {
     const hint = $id('hint-' + fd.key);
