@@ -5892,11 +5892,19 @@ function isOverdue(item) {
   if (isNaN(t)) return false;
   return (Date.now() - t) >= OVERDUE_HOURS * 36e5;
 }
+// Aktive Reservierung einer Anfrage (oder null), für die Markierung in den Listen.
+function reservationOf(item) {
+  const field = getLockField();
+  if (!field) return null;
+  const lock = parseLock(getField(item, field) || '');
+  return (lock && lock.kind === 'reserve' && lock.expiresAt > new Date()) ? lock : null;
+}
 
 function itemCard(item) {
   const title   = esc(cleanTitle(getField(item,'Title')));
   const status  = getStatusVal(item);
   const over    = isOverdue(item);
+  const resv    = reservationOf(item);
   const wg      = getField(item, resolvedFields['Warengruppe']    || 'Warengruppe')      || '';
   const preis   = parseFloat(getField(item, resolvedFields['GeschaetzterPreis'] || 'GeschaetzterPreis')) || null;
   const prio    = getField(item, resolvedFields['Prioritaet']     || 'Prioritaet')       || '';
@@ -5922,6 +5930,7 @@ function itemCard(item) {
       ${over ? `<div class="ic-overdue">${OVERDUE_HINT}</div>` : ''}
       <div class="ic-tags">
         <span class="ic-tag ic-banf">#${item.id}</span>
+        ${resv ? `<span class="ic-tag ic-reserved">🔑 ${esc(resv.by)}</span>` : ''}
         ${wg      ? `<span class="ic-tag ic-wg">${esc(wg)}</span>` : ''}
         ${beschl  ? `<span class="ic-tag">${beschlShort(beschl)}</span>` : ''}
         ${menge && me ? `<span class="ic-tag">⚖ ${esc(menge)} ${esc(me)}</span>` : ''}
@@ -5989,8 +5998,10 @@ function compactRow(item) {
   const creator = item.createdBy?.user?.displayName || item.createdBy?.user?.email || '';
   const apprSum = getApprovalSummary(item);
   const over    = isOverdue(item);
+  const resv    = reservationOf(item);
 
   const tags = [
+    resv   ? `<span class="cr2-tag cr2-reserved">🔑 ${esc(resv.by)}</span>` : '',
     wg     ? `<span class="cr2-tag cr2-wg">${esc(wg)}</span>` : '',
     beschl ? `<span class="cr2-tag">${beschlShort(beschl)}</span>` : '',
     menge && me ? `<span class="cr2-tag">⚖ ${esc(menge)} ${esc(me)}</span>` : '',
@@ -6106,6 +6117,8 @@ function bindPanelEvents(itemId) {
   pq('#panel-edit')?.addEventListener('click', () => startEditMode(itemId));
   pq('#panel-order')?.addEventListener('click', () => openOrderModal(itemId));
   pq('#panel-fav')?.addEventListener('click', () => saveItemAsFavorite(itemId));
+  pq('#panel-reserve')?.addEventListener('click', () => reserveForMe(itemId));
+  pq('#panel-unreserve')?.addEventListener('click', () => releaseReservation(itemId));
 
   // Genehmigungsaktion-Buttons
   pq('#btn-approve')?.addEventListener('click', () => doApprove(itemId));
@@ -6620,9 +6633,14 @@ function renderPanel(item, editMode = false) {
   const lockData    = parseLock(lockField ? (getField(item, lockField) || '') : '');
   const isLocked    = lockData && lockData.expiresAt > new Date();
   const me          = account?.name || account?.username || '';
-  const lockedByMe  = isLocked && lockData.by === me;
-  const lockBadge   = isLocked && !lockedByMe
-    ? `<span class="panel-lock-badge">🔒 ${esc(lockData.by)} bearbeitet gerade</span>` : '';
+  const lockedByMe   = isLocked && lockData.by === me;
+  const isReserved   = isLocked && lockData.kind === 'reserve';
+  const reservedByMe = isReserved && lockedByMe;
+  const lockBadge   =
+      isReserved && !lockedByMe ? `<span class="panel-lock-badge">🔑 ${esc(lockData.by)} hat reserviert</span>`
+    : reservedByMe              ? `<span class="panel-lock-badge panel-lock-mine">🔑 Für dich reserviert</span>`
+    : isLocked && !lockedByMe   ? `<span class="panel-lock-badge">🔒 ${esc(lockData.by)} bearbeitet gerade</span>`
+    : '';
 
   // Einkäufer/Admin dürfen jederzeit bearbeiten (z. B. Titel/Bezeichnung ändern, auch bei
   // Auto-Entwürfen). Alle anderen nur im Status „In Prüfung (Einkauf)".
@@ -6634,12 +6652,21 @@ function renderPanel(item, editMode = false) {
       : `<button class="btn btn-outline btn-sm" disabled title="Nur bei Status 'In Prüfung (Einkauf)' möglich">✏️ Bearbeiten</button>`;
 
   const favBtn = `<button class="btn btn-outline btn-sm" id="panel-fav" title="Als Wiedervorlage / Favorit speichern">⭐ Als Wiedervorlage</button>`;
+
+  // Reservieren: Einkäufer kann eine laufende Anfrage für sich belegen. Von anderen
+  // belegte Anfragen zeigen nur das Badge, keinen Button.
+  const canReserve = !isMineView && canApprove() && isOffenStatus(statusVal);
+  const reserveBtn = !canReserve ? ''
+    : reservedByMe            ? `<button class="btn btn-outline btn-sm" id="panel-unreserve" title="Deine Reservierung aufheben">🔑 Reservierung aufheben</button>`
+    : (isLocked && !lockedByMe) ? ''
+    : `<button class="btn btn-outline btn-sm" id="panel-reserve" title="Für dich zur Bearbeitung reservieren">🔑 Für mich reservieren</button>`;
+
   const buttons = editMode
     ? `${orderBtn}
        <button class="btn btn-primary btn-sm" id="panel-save">💾 Speichern</button>
        <button class="btn btn-ghost btn-sm" id="panel-cancel">✕ Abbrechen</button>
        <button class="btn btn-outline btn-sm" id="panel-history">📋 Verlauf</button>`
-    : `${editBtn} ${orderBtn}
+    : `${editBtn} ${orderBtn} ${reserveBtn}
        <button class="btn btn-outline btn-sm" id="panel-history">📋 Verlauf</button>
        ${favBtn}`;
 
@@ -6887,10 +6914,12 @@ function getLockField() {
 }
 function parseLock(raw) {
   if (!raw) return null;
-  const i = String(raw).indexOf('|');
-  if (i < 0) return null;
-  const expiresAt = new Date(String(raw).slice(i + 1));
-  return isNaN(expiresAt.getTime()) ? null : { by: String(raw).slice(0, i), expiresAt };
+  // Format: „Name|ISO-Zeit" = kurzer Edit-Lock, „Name|ISO-Zeit|R" = Reservierung.
+  const parts = String(raw).split('|');
+  if (parts.length < 2) return null;
+  const expiresAt = new Date(parts[1]);
+  if (isNaN(expiresAt.getTime())) return null;
+  return { by: parts[0], expiresAt, kind: parts[2] === 'R' ? 'reserve' : 'edit' };
 }
 async function tryAcquireLock(itemId) {
   const field = getLockField();
@@ -6899,9 +6928,17 @@ async function tryAcquireLock(itemId) {
   if (field && item) {
     const lock = parseLock(getField(item, field));
     if (lock && lock.expiresAt > new Date() && lock.by !== me) {
-      const mins = Math.ceil((lock.expiresAt - new Date()) / 60000);
-      toast(`Wird von „${lock.by}" bearbeitet – noch ${mins} Min. gesperrt.`, 'error');
+      if (lock.kind === 'reserve') {
+        toast(`Für „${lock.by}" reserviert.`, 'error');
+      } else {
+        const mins = Math.ceil((lock.expiresAt - new Date()) / 60000);
+        toast(`Wird von „${lock.by}" bearbeitet – noch ${mins} Min. gesperrt.`, 'error');
+      }
       return false;
+    }
+    if (lock && lock.by === me && lock.kind === 'reserve' && lock.expiresAt > new Date()) {
+      // Eigene Reservierung bleibt bestehen; Bearbeitung erlaubt, kein 15-Min-Edit-Lock.
+      return true;
     }
     const until = new Date(Date.now() + 15 * 60 * 1000).toISOString();
     try {
@@ -6913,7 +6950,7 @@ async function tryAcquireLock(itemId) {
   lockTimers[String(itemId)] = setTimeout(() => autoReleaseLock(itemId), 15 * 60 * 1000);
   return true;
 }
-async function releaseLock(itemId) {
+async function releaseLock(itemId, force = false) {
   const key = String(itemId);
   if (lockTimers[key]) { clearTimeout(lockTimers[key]); delete lockTimers[key]; }
   const field = getLockField();
@@ -6922,6 +6959,7 @@ async function releaseLock(itemId) {
   const me   = account?.name || account?.username || 'Unbekannt';
   const lock = parseLock(getField(item, field));
   if (!lock || lock.by !== me) return; // never release someone else's lock
+  if (lock.kind === 'reserve' && !force) return; // Reservierung nur auf ausdrücklichen Wunsch lösen
   try {
     await gPatch(`/sites/${siteId}/lists/${listId}/items/${key}/fields`, { [field]: '' });
     if (item?.fields) item.fields[field] = '';
@@ -6940,6 +6978,42 @@ async function autoReleaseLock(itemId) {
       bindPanelEvents(key);
     }
   }
+}
+// ── Reservierung („Schlüssel") ────────────────────────────────────────────────
+// Ein Einkäufer kann eine laufende Anfrage für sich zur Bearbeitung reservieren.
+// Gespeichert im selben Sperrfeld wie der Edit-Lock, aber mit „|R"-Kennzeichen und
+// längerer Haltezeit. Die Reservierung wird nur ausdrücklich wieder gelöst.
+const RESERVE_HOURS = 8;
+async function reserveForMe(itemId) {
+  const field = getLockField();
+  if (!field) { toast('Reservieren nicht möglich: kein Sperrfeld in SharePoint.', 'error'); return; }
+  const item = allItems.find(i => String(i.id) === String(itemId));
+  const me   = account?.name || account?.username || 'Unbekannt';
+  const lock = parseLock(getField(item, field));
+  if (lock && lock.expiresAt > new Date() && lock.by !== me) {
+    toast(`Bereits für „${lock.by}" belegt.`, 'error'); return;
+  }
+  const until = new Date(Date.now() + RESERVE_HOURS * 60 * 60 * 1000).toISOString();
+  try {
+    await gPatch(`/sites/${siteId}/lists/${listId}/items/${itemId}/fields`, { [field]: `${me}|${until}|R` });
+    if (item?.fields) item.fields[field] = `${me}|${until}|R`;
+    toast('🔑 Für dich reserviert.', 'success');
+  } catch (e) {
+    console.warn('[reserve] failed:', e.message);
+    toast('Reservieren fehlgeschlagen.', 'error'); return;
+  }
+  await loadItems(false);
+  const updated   = allItems.find(i => String(i.id) === String(itemId));
+  const panelRoot = $id(`panel-${currentView}-content`);
+  if (updated && panelRoot) { panelRoot.innerHTML = renderPanel(updated); bindPanelEvents(itemId); }
+}
+async function releaseReservation(itemId) {
+  await releaseLock(itemId, true);
+  toast('Reservierung aufgehoben.', 'info');
+  await loadItems(false);
+  const updated   = allItems.find(i => String(i.id) === String(itemId));
+  const panelRoot = $id(`panel-${currentView}-content`);
+  if (updated && panelRoot) { panelRoot.innerHTML = renderPanel(updated); bindPanelEvents(itemId); }
 }
 async function startEditMode(itemId) {
   const ok = await tryAcquireLock(itemId);
